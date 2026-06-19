@@ -1,0 +1,7 @@
+product: Hermes Core
+scope: Draft
+installations: []
+status: draft
+human_approval: pending
+notes:
+  - Catalog membership does not imply deployment.

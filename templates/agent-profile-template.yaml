@@ -1,0 +1,9 @@
+id: agent-profile-id
+name: Hermes Agent Profile
+installation_id: kebab-case-id
+operating_rules:
+  inherit_baseline: true
+  human_approval_required: true
+permissions: {}
+channels: []
+open_questions: []

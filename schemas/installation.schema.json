@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ferreiraesilva/hermes-base/schemas/installation.schema.json",
+  "title": "Hermes Installation",
+  "type": "object",
+  "required": ["id", "name", "status", "environment", "owner", "inherits_baseline", "enabled_products"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+    "name": { "type": "string", "minLength": 1 },
+    "status": { "enum": ["draft", "active", "parked", "retired"] },
+    "environment": { "type": "string", "minLength": 1 },
+    "owner": { "type": "string", "minLength": 1 },
+    "inherits_baseline": { "type": "boolean" },
+    "enabled_products": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
+    "channels": { "type": "array", "items": { "type": "string" } },
+    "repositories": { "type": "array", "items": { "type": "string" } },
+    "permissions": { "type": "object" },
+    "notes": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": false
+}
