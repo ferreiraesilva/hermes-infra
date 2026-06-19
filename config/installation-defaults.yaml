@@ -1,0 +1,21 @@
+version: 1
+
+defaults:
+  inherits_baseline: true
+  status: draft
+  environment: personal
+  enabled_products:
+    - Hermes Core
+
+required_metadata:
+  - id
+  - name
+  - owner
+  - environment
+  - inherits_baseline
+  - enabled_products
+
+approval_rules:
+  enable_new_products: human_required
+  disable_baseline_rules: human_required
+  activate_installation: human_required

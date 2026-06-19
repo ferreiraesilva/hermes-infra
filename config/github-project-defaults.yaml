@@ -1,0 +1,24 @@
+version: 1
+
+required_fields:
+  - Type
+  - Product
+  - Status
+  - Priority
+  - Installation Scope
+  - Target Installations
+  - Deployment Scope
+  - Start Date
+  - Target Date
+  - Sprint
+  - Approved for Sprint
+  - Repository
+
+suggested_views:
+  - Inbox
+  - Portfolio Roadmap
+  - Product Backlog
+  - Sprint
+  - PR Review
+  - Human Acceptance
+  - Continuous Improvement

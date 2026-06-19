@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ferreiraesilva/hermes-base/schemas/hermes-baseline.schema.json",
+  "title": "Hermes Baseline",
+  "type": "object",
+  "required": ["version", "baseline", "human_approval", "work_classification", "workflow_statuses", "agent_rules", "product_deployment"],
+  "properties": {
+    "version": { "type": "integer", "minimum": 1 },
+    "baseline": {
+      "type": "object",
+      "required": ["name", "applies_to", "inheritance_required"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "applies_to": { "const": "all_hermes_installations" },
+        "inheritance_required": { "type": "boolean" }
+      }
+    },
+    "human_approval": { "type": "object", "required": ["required_for"] },
+    "work_classification": { "type": "object", "required": ["allowed_types"] },
+    "workflow_statuses": { "type": "object", "required": ["non_executable", "executable", "terminal"] },
+    "agent_rules": { "type": "array", "items": { "type": "string" } },
+    "github_project": { "type": "object" },
+    "pull_requests": { "type": "object" },
+    "issue_closure": { "type": "object" },
+    "product_deployment": { "type": "object", "required": ["allowed_scopes", "human_approval_required"] }
+  },
+  "additionalProperties": false
+}

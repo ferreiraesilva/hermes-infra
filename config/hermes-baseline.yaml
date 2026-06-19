@@ -1,0 +1,72 @@
+version: 1
+
+baseline:
+  name: Hermes Base
+  applies_to: all_hermes_installations
+  inheritance_required: true
+
+human_approval:
+  required_for:
+    - sprint_commitment
+    - baseline_changes
+    - baseline_exceptions
+    - product_deployment_changes
+    - pull_request_merge
+    - issue_closure
+
+work_classification:
+  allowed_types:
+    - Idea
+    - Initiative
+    - Epic
+    - User Story
+    - Technical Task
+    - Spike
+    - Bug
+    - RFC
+    - Decision Record
+
+workflow_statuses:
+  non_executable:
+    - Inbox
+    - Draft
+    - Discovery
+    - Spec
+    - Ready for Approval
+    - Parked
+    - Blocked
+  executable:
+    - Approved for Sprint
+    - In Development
+    - PR Review
+    - Human Acceptance
+  terminal:
+    - Done
+    - Closed
+    - Not Planned
+
+agent_rules:
+  - Agents must not approve their own work.
+  - Agents must not implement work without approved sprint commitment.
+  - Agents must not assume catalog membership means product deployment.
+  - Agents must add open questions instead of inventing critical decisions.
+
+github_project:
+  defaults_file: config/github-project-defaults.yaml
+
+pull_requests:
+  human_acceptance_required_before_merge: true
+  agents_may_merge: false
+
+issue_closure:
+  human_acceptance_required: true
+  agents_may_close_without_acceptance: false
+
+product_deployment:
+  allowed_scopes:
+    - Global
+    - Selected Installations
+    - Not Deployed
+    - Draft
+  human_approval_required: true
+  catalog_membership_implies_deployment: false

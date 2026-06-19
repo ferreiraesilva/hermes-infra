@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ferreiraesilva/hermes-base/schemas/product-deployment.schema.json",
+  "title": "Hermes Product Deployment",
+  "type": "object",
+  "required": ["product", "scope", "installations", "status", "human_approval"],
+  "properties": {
+    "product": { "type": "string", "minLength": 1 },
+    "scope": { "enum": ["Global", "Selected Installations", "Not Deployed", "Draft"] },
+    "installations": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
+    "status": { "enum": ["draft", "planned", "active", "parked", "retired"] },
+    "human_approval": { "type": "string", "minLength": 1 },
+    "notes": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": false
+}

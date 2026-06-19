@@ -1,0 +1,13 @@
+id: kebab-case-id
+name: Hermes Installation Name
+status: draft
+environment: personal
+owner: human-user
+inherits_baseline: true
+enabled_products:
+  - Hermes Core
+channels: []
+repositories: []
+permissions: {}
+notes:
+  - Human approval is required before activation.
