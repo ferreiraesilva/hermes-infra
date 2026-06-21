@@ -1,0 +1,19 @@
+name: Deploy HML instance
+on:
+  workflow_dispatch:
+    inputs:
+      deployment:
+        description: Deployment declarado em clients/*.json
+        required: true
+        type: choice
+        options: [leonardo-pessoal, leonardo-corretores, ebm-corretores, city-interno, city-corretores]
+concurrency:
+  group: hml-${{ inputs.deployment }}
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: [self-hosted, hermes-hml]
+    environment: hml
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./scripts/deploy-instance.sh hml "${{ inputs.deployment }}"

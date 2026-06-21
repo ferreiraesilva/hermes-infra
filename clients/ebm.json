@@ -1,0 +1,13 @@
+{
+  "client": {"id": "ebm", "name": "EBM"},
+  "subscriptions": ["minhaincorporadora"],
+  "deployments": [
+    {
+      "id": "ebm-corretores",
+      "environment": "hml",
+      "audience": "corretores",
+      "products": ["minhaincorporadora"],
+      "telegram_secret": "HML_EBM_CORRETORES_TELEGRAM_BOT_TOKEN"
+    }
+  ]
+}

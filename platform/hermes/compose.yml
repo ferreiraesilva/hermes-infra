@@ -1,0 +1,12 @@
+services:
+  gateway:
+    image: ${HERMES_IMAGE:-nousresearch/hermes-agent@sha256:4b50f1201f280e28887f6a2d7bbcd50fe370e0da3e92417d6e51778b485cf18e}
+    container_name: ${HERMES_CONTAINER_NAME:?defina HERMES_CONTAINER_NAME}
+    restart: unless-stopped
+    network_mode: host
+    command: ["gateway", "run"]
+    volumes:
+      - ${HERMES_DATA_DIR:?defina HERMES_DATA_DIR}:/opt/data
+    environment:
+      HERMES_UID: ${HERMES_UID:?defina HERMES_UID}
+      HERMES_GID: ${HERMES_GID:?defina HERMES_GID}

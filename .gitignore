@@ -1,0 +1,11 @@
+.env
+*.env
+!*.env.example
+.generated/
+runtime/
+dumps/
+build.log
+*.dump
+*.sql.bak
+__pycache__/
+*.pyc

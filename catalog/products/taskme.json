@@ -1,0 +1,10 @@
+{
+  "id": "taskme",
+  "name": "TaskMe",
+  "repository": "https://github.com/ferreiraesilva/TaskMe.git",
+  "local_source_hml": "/home/leonardo/projects/TaskMe",
+  "ref_hml": "feature/taskme-v1",
+  "plugin_name": "taskme",
+  "migrations": "migrations",
+  "env": {"TZ": "America/Sao_Paulo", "HERMES_SEND_CMD": "hermes send"}
+}

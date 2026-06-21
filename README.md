@@ -1,44 +1,42 @@
-# hermes-base
+# hermes-infra
 
-Fundação executável compartilhada para instalações do **Hermes Agent**.
+Fonte da verdade das instalações Hermes administradas por Leonardo.
 
-Toda instalação de Hermes (produção, homologação, futuros clientes) parte daqui:
-um `compose.base.yml` comum + um override por ambiente + deploy **GitOps** via
-GitHub Actions. **Ninguém edita produção na mão** — a fonte da verdade é este repo.
+Este repositório define os ambientes, o Postgres compartilhado, os produtos
+contratados por cliente, seus deployments, nomes de recursos e referências de
+secrets. Os produtos continuam em repositórios próprios e nunca sobem Postgres.
 
-## Estrutura
+## Homologação inicial
 
+| Cliente | Deployment | Público | Produtos |
+|---|---|---|---|
+| Leonardo | `leonardo-pessoal` | pessoal | TaskMe |
+| Leonardo | `leonardo-corretores` | corretores | MinhaIncorporadora |
+| EBM | `ebm-corretores` | corretores | MinhaIncorporadora |
+| City | `city-interno` | interno | TaskMe |
+| City | `city-corretores` | corretores | MinhaIncorporadora |
+
+A separação por público impede disputa entre hooks/personas. Os cinco deployments
+simultâneos precisam de cinco bots Telegram exclusivos.
+
+## Secrets
+
+Secrets não entram no Git. No host:
+
+```text
+~/.config/hermes-infra/secrets/<ambiente>/common.env
+~/.config/hermes-infra/secrets/<ambiente>/<deployment>.env
 ```
-compose.base.yml              # serviço comum do gateway (imagem oficial, /opt/data, s6, network host)
-compose.prd.yml               # override de produção: hermes-prd, imagem pinada, dados /home/leo/.hermes
-.github/workflows/deploy-prd.yml  # deploy de prod via runner self-hosted (label hermes-prd)
-env/prd.env.example           # referência das variáveis/segredos de prod (sem valores)
+
+O arquivo da instância contém `TELEGRAM_BOT_TOKEN`, `DATABASE_PASSWORD` e,
+opcionalmente, `TELEGRAM_ALLOWED_USERS`. O arquivo comum contém credenciais do
+provedor de IA. Nenhum script copia, remove ou modifica dados de WhatsApp.
+
+## Comandos
+
+```bash
+python3 scripts/validate_inventory.py
+./scripts/deploy-instance.sh hml leonardo-pessoal
 ```
 
-## Produção (host `solid`)
-
-Deploy automático no `push` para `main` (ou `workflow_dispatch`). O workflow:
-
-1. Gera `/home/leo/.hermes/.env` a partir dos **GitHub Actions secrets**
-   (hoje: `TELEGRAM_BOT_TOKEN` → `@Truemobile_HermesAgent_bot`).
-2. Remove o container Hermes legado (subido na mão) preservando os dados.
-3. Sobe `hermes-prd` com `gateway run`, supervisionado pelo s6, `restart: unless-stopped`.
-
-### Pré-requisitos (uma vez)
-
-- Runner self-hosted registrado **neste repo** com label `hermes-prd` (no `solid`).
-- Secret `TELEGRAM_BOT_TOKEN` configurado no repo.
-
-### Atualizar a versão do Hermes
-
-Troque o digest da imagem em [`compose.prd.yml`](compose.prd.yml) e faça commit —
-o GitHub Actions reaplica. Sem `latest` em prod: pin por digest = reprodutível.
-
-## Convenção de nomes
-
-`<serviço>-<ambiente>` (`prd`/`hml`/`dev`). Nada de nome aleatório do Docker.
-
-## Homologação
-
-O ambiente de homologação (MAC02) será consolidado aqui via `compose.hml.yml`
-(hoje vive no repo `infra`). LAN sem IP público → sem runner; deploy local.
+O deploy exige `postgres-hml` saudável; se ele não existir, falha sem criar outro.

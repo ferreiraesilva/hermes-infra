@@ -1,0 +1,10 @@
+{
+  "id": "prd",
+  "host": "solid",
+  "runner_label": "hermes-prd",
+  "postgres_container": "postgres-prd",
+  "postgres_host": "127.0.0.1",
+  "postgres_port": 5432,
+  "data_root": "/home/leo/.hermes-instances/prd",
+  "runtime_root": "/home/leo/.local/share/hermes-infra/runtime/prd"
+}

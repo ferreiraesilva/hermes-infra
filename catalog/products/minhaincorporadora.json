@@ -1,0 +1,18 @@
+{
+  "id": "minhaincorporadora",
+  "name": "MinhaIncorporadora",
+  "repository": "https://github.com/ferreiraesilva/MinhaIncorporadora.git",
+  "local_source_hml": "/home/leonardo/projects/MinhaIncorporadora",
+  "ref_hml": "feature/minhaincorp-v1",
+  "plugin_name": "minhaincorp",
+  "migrations": "migrations",
+  "seed_hml": "seeds/0001_ficticio.sql",
+  "env": {
+    "TZ": "America/Sao_Paulo",
+    "HERMES_SEND_CMD": "hermes send",
+    "MINHAINCORP_SCHEMA": "minhaincorp",
+    "MINHAINCORP_MODE": "telegram_test",
+    "MINHAINCORP_TENANT": "modelo",
+    "MINHAINCORP_TG_TEST_PHONE": "5562993119454"
+  }
+}

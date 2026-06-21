@@ -1,0 +1,20 @@
+{
+  "client": {"id": "leonardo", "name": "Leonardo Ferreira"},
+  "subscriptions": ["taskme", "minhaincorporadora"],
+  "deployments": [
+    {
+      "id": "leonardo-pessoal",
+      "environment": "hml",
+      "audience": "pessoal",
+      "products": ["taskme"],
+      "telegram_secret": "HML_LEONARDO_PESSOAL_TELEGRAM_BOT_TOKEN"
+    },
+    {
+      "id": "leonardo-corretores",
+      "environment": "hml",
+      "audience": "corretores",
+      "products": ["minhaincorporadora"],
+      "telegram_secret": "HML_LEONARDO_CORRETORES_TELEGRAM_BOT_TOKEN"
+    }
+  ]
+}

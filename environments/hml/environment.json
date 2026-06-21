@@ -1,0 +1,11 @@
+{
+  "id": "hml",
+  "host": "mac02",
+  "address": "192.168.100.125",
+  "runner_label": "hermes-hml",
+  "postgres_container": "postgres-hml",
+  "postgres_host": "127.0.0.1",
+  "postgres_port": 5432,
+  "data_root": "/home/leonardo/.hermes-instances/hml",
+  "runtime_root": "/home/leonardo/.local/share/hermes-infra/runtime/hml"
+}
