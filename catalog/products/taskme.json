@@ -3,7 +3,7 @@
   "name": "TaskMe",
   "code": "TM",
   "db_slug": "taskme",
-  "repository": "https://github.com/ferreiraesilva/TaskMe.git",
+  "repository": "https://github.com/ferreiraesilva/hermes-taskme.git",
   "local_source_hml": "/home/leonardo/projects/TaskMe",
   "ref_hml": "feature/taskme-v1",
   "plugin_name": "taskme",

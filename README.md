@@ -45,6 +45,16 @@ opcional em `secrets/<ambiente>/auth.json` (auth de LLM compartilhada — o depl
 copia para cada container, pois profile novo não herda). Nenhum script copia,
 remove ou modifica dados de WhatsApp.
 
+**Divisão segredo × não-segredo.** O que *não* é segredo (username do bot,
+mapeamento cliente/profile/produto) mora no inventário (git). O que *é* segredo
+(token do bot, senha de banco) nunca entra no git:
+
+- **Deploy local (hml hoje):** preencha **uma vez** com `./scripts/secrets-fill.sh
+  <ambiente>` — ele pede cada token sem eco e gera as senhas de banco. Todo deploy
+  reusa; você não redigita.
+- **Deploy GitOps (prd, prompt-2):** os tokens viram **GitHub Environment Secrets**
+  (criptografados); o workflow injeta no deploy. Mesma ideia: cadastra uma vez.
+
 ## Comandos
 
 ```bash
