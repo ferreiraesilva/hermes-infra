@@ -1,24 +1,37 @@
 #!/usr/bin/env bash
-# Provisiona/atualiza UM cliente em UM ambiente = UM container Hermes.
-# Unidade: cliente x ambiente. O cliente pode ter vários profiles (1+ produtos
-# cada); cada produto tem seu próprio banco/role. Nunca dois containers para o
-# mesmo cliente — um único volume por cliente.
+# Provisiona/atualiza UM profile = UM container Hermes = UM bot.
+# Um profile pertence a um cliente, agrupa 1+ produtos (plugins) que dividem o
+# mesmo bot; cada produto tem seu próprio banco/role. Cada container roda o
+# `gateway run` do seu home default (image-native, supervisionado pelo s6).
 #
-# Modelo de profile (manual do Hermes): cada profile é um HERMES_HOME próprio em
-# /opt/data/profiles/<id> com .env, config.yaml, sessions e gateway próprios.
-# O token do bot vive no .env do profile; cada profile sobe seu próprio gateway
-# (`hermes -p <id> gateway start`). Não reutilize um token em dois gateways.
+# Uso:
+#   ./deploy-instance.sh hml leonardo pessoal     # um profile
+#   ./deploy-instance.sh hml leonardo             # todos os profiles do cliente
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENVIRONMENT="${1:-}"
 CLIENT="${2:-}"
-[[ -n "$ENVIRONMENT" && -n "$CLIENT" ]] || { echo "uso: $0 <hml|prd> <cliente>" >&2; exit 2; }
+PROFILE="${3:-}"
+[[ -n "$ENVIRONMENT" && -n "$CLIENT" ]] || { echo "uso: $0 <hml|prd> <cliente> [profile]" >&2; exit 2; }
+
+# Caminho do binário hermes DENTRO do container (não está no PATH).
+HERMES_BIN="${HERMES_BIN:-/opt/hermes/.venv/bin/hermes}"
 
 python3 "$ROOT/scripts/validate_inventory.py"
 
+# Sem profile explícito: itera todos os profiles do cliente (1 container cada).
+if [[ -z "$PROFILE" ]]; then
+  while read -r prof; do
+    [[ -n "$prof" ]] || continue
+    echo "===> profile $prof"
+    "$0" "$ENVIRONMENT" "$CLIENT" "$prof"
+  done < <(python3 "$ROOT/scripts/inventory.py" profiles "$ENVIRONMENT" "$CLIENT")
+  exit 0
+fi
+
 PLAN="$(mktemp)"; trap 'rm -f "$PLAN"' EXIT
-python3 "$ROOT/scripts/inventory.py" plan "$ENVIRONMENT" "$CLIENT" > "$PLAN"
+python3 "$ROOT/scripts/inventory.py" plan "$ENVIRONMENT" "$CLIENT" "$PROFILE" > "$PLAN"
 
 field() { python3 -c "import json,sys;print(json.load(open(sys.argv[1]))[sys.argv[2]])" "$PLAN" "$1"; }
 CONTAINER_NAME="$(field container_name)"
@@ -27,6 +40,7 @@ DATA_DIR="$(field data_dir)"
 POSTGRES_CONTAINER="$(field postgres_container)"
 POSTGRES_HOST="$(field postgres_host)"
 POSTGRES_PORT="$(field postgres_port)"
+TELEGRAM_SECRET="$(field telegram_secret)"
 
 # PRD nunca roda SQL sem aprovação explícita (até o GitOps do prompt-2 existir).
 if [[ "$ENVIRONMENT" == "prd" && "${HERMES_INFRA_CONFIRM_PRD:-}" != "1" ]]; then
@@ -34,25 +48,32 @@ if [[ "$ENVIRONMENT" == "prd" && "${HERMES_INFRA_CONFIRM_PRD:-}" != "1" ]]; then
   exit 1
 fi
 
-# --- Secrets (fora do git) ---------------------------------------------------
+# --- Secrets (fora do git; 1 arquivo por cliente, cobre todos os profiles) ---
 SECRETS_ROOT="${HERMES_INFRA_SECRETS_DIR:-$HOME/.config/hermes-infra/secrets}"
 COMMON_ENV="$SECRETS_ROOT/$ENVIRONMENT/common.env"
 CLIENT_ENV="$SECRETS_ROOT/$ENVIRONMENT/$CLIENT.env"
+AUTH_SRC="$SECRETS_ROOT/$ENVIRONMENT/auth.json"   # auth de LLM compartilhada (opcional)
 [[ -f "$COMMON_ENV" ]] || { echo "secret comum ausente: $COMMON_ENV" >&2; exit 1; }
 [[ -f "$CLIENT_ENV" ]] || { echo "secret do cliente ausente: $CLIENT_ENV" >&2; exit 1; }
 set -a; source "$COMMON_ENV"; source "$CLIENT_ENV"; set +a
+
+token="${!TELEGRAM_SECRET:-}"
+[[ -n "$token" ]] || { echo "token ausente: defina $TELEGRAM_SECRET em $CLIENT_ENV" >&2; exit 1; }
 
 # --- Postgres saudável -------------------------------------------------------
 health="$(docker inspect -f '{{.State.Health.Status}}' "$POSTGRES_CONTAINER" 2>/dev/null || true)"
 [[ "$health" == "healthy" ]] || { echo "$POSTGRES_CONTAINER não está saudável; nada será criado" >&2; exit 1; }
 
 umask 077
-mkdir -p "$DATA_DIR/product-src"
+mkdir -p "$DATA_DIR/plugins" "$DATA_DIR/product-src"
 chmod 700 "$DATA_DIR"
 
-# .env do profile default (/opt/data/.env): só credenciais comuns de LLM.
-cp "$COMMON_ENV" "$DATA_DIR/.env"
-chmod 600 "$DATA_DIR/.env"
+# auth de LLM (provider openai-codex etc.): profile novo não herda; copiamos.
+if [[ -f "$AUTH_SRC" ]]; then
+  cp "$AUTH_SRC" "$DATA_DIR/auth.json"; chmod 600 "$DATA_DIR/auth.json"
+else
+  echo "aviso: $AUTH_SRC ausente; o container precisará de auth de LLM (rode 'hermes setup' ou copie auth.json)" >&2
+fi
 
 # --- Bancos/roles por produto (idempotente + isolamento lógico) --------------
 db_rows() { python3 - "$PLAN" <<'PY'
@@ -120,56 +141,31 @@ PY
     docker exec -i -e PGPASSWORD="$password" "$POSTGRES_CONTAINER" \
       psql -v ON_ERROR_STOP=1 -U "$role" -d "$database" < "$target/$seed"
   fi
+
+  # Plugin disponível no home default do container.
+  ln -sfn "/opt/data/product-src/$db_slug" "$DATA_DIR/plugins/$plugin"
 done < <(db_rows)
 
-# --- Container único do cliente (precisa estar no ar p/ criar profiles) ------
+# --- .env do container (home default): credenciais LLM + token do bot --------
+{
+  cat "$COMMON_ENV"
+  printf 'TELEGRAM_BOT_TOKEN=%s\n' "$token"
+  [[ -n "${TELEGRAM_ALLOWED_USERS:-}" ]] && printf 'TELEGRAM_ALLOWED_USERS=%s\n' "$TELEGRAM_ALLOWED_USERS"
+} > "$DATA_DIR/.env"
+chmod 600 "$DATA_DIR/.env"
+
+# --- Container do profile (1 gateway run, profile default) -------------------
 export HERMES_CONTAINER_NAME="$CONTAINER_NAME" HERMES_DATA_DIR="$DATA_DIR"
 export HERMES_UID="$(id -u)" HERMES_GID="$(id -g)" COMPOSE_PROJECT_NAME="$COMPOSE_PROJECT"
 docker compose -f "$ROOT/platform/hermes/compose.yml" up -d
 sleep 8
 
-# --- Profiles do Hermes (1 gateway + 1 bot por profile) ----------------------
-# Cada profile = HERMES_HOME próprio em /opt/data/profiles/<id>. O token do bot
-# vai no .env do profile; os plugins do profile são habilitados via `hermes -p`.
-prof_rows() { python3 - "$PLAN" <<'PY'
-import json, sys
-plan = json.load(open(sys.argv[1]))
-for p in plan["profiles"]:
-    sources = ",".join(f"{s['plugin']}:{s['db_slug']}" for s in p["plugin_sources"])
-    print("\t".join([p["id"], p["telegram_secret"], sources]))
-PY
-}
-
-while IFS=$'\t' read -r profile_id secret_var plugin_sources; do
-  token="${!secret_var:-}"
-  [[ -n "$token" ]] || { echo "token ausente: defina $secret_var em $CLIENT_ENV (profile $profile_id)" >&2; exit 1; }
-  profile_home="$DATA_DIR/profiles/$profile_id"
-
-  # Cria o profile (idempotente; semeia skills) dentro do container.
-  docker exec "$CONTAINER_NAME" hermes profile create "$profile_id" 2>/dev/null || true
-  mkdir -p "$profile_home/plugins"
-
-  # .env do profile = credenciais comuns de LLM + token do bot (só secrets).
-  {
-    cat "$COMMON_ENV"
-    printf 'TELEGRAM_BOT_TOKEN=%s\n' "$token"
-    [[ -n "${TELEGRAM_ALLOWED_USERS:-}" ]] && printf 'TELEGRAM_ALLOWED_USERS=%s\n' "$TELEGRAM_ALLOWED_USERS"
-  } > "$profile_home/.env"
-  chmod 600 "$profile_home/.env"
-
-  # Symlink do código de cada plugin para dentro do profile e habilita via CLI
-  # (escreve plugins.enabled no config.yaml do profile de forma idempotente).
-  IFS=',' read -ra pairs <<< "$plugin_sources"
-  for pair in "${pairs[@]}"; do
-    plugin="${pair%%:*}"; slug="${pair##*:}"
-    ln -sfn "/opt/data/product-src/$slug" "$profile_home/plugins/$plugin"
-    docker exec "$CONTAINER_NAME" hermes -p "$profile_id" plugins enable "$plugin" || true
-  done
-
-  # Sobe o gateway próprio do profile (1 bot por profile).
-  docker exec "$CONTAINER_NAME" hermes -p "$profile_id" gateway start || true
-done < <(prof_rows)
+# Habilita os plugins do profile no config.yaml e reinicia p/ recarregar.
+while IFS= read -r plugin; do
+  [[ -n "$plugin" ]] || continue
+  docker exec "$CONTAINER_NAME" "$HERMES_BIN" plugins enable "$plugin" || true
+done < <(python3 -c "import json,sys;print('\n'.join(json.load(open(sys.argv[1]))['plugins']))" "$PLAN")
+docker restart "$CONTAINER_NAME" >/dev/null
 
 docker inspect -f 'name={{.Name}} status={{.State.Status}} restarts={{.RestartCount}}' "$CONTAINER_NAME"
-echo "Profiles ativos:"
-docker exec "$CONTAINER_NAME" hermes profile list 2>/dev/null || true
+docker exec "$CONTAINER_NAME" "$HERMES_BIN" plugins list 2>/dev/null || true

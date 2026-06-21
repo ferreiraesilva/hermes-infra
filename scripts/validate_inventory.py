@@ -8,7 +8,6 @@ ENV_CODE = {"hml": "Hml", "prd": "Prd"}
 def main() -> int:
     errors: list[str] = []
     catalog = products()
-    seen_client_env: set[tuple[str, str]] = set()
     bot_usernames: set[str] = set()
     resources: set[tuple[str, str]] = set()
     slugs: dict[str, str] = {}
@@ -36,17 +35,19 @@ def main() -> int:
         if subscriptions - catalog.keys():
             errors.append(f"{client_id}: produtos desconhecidos: {sorted(subscriptions - catalog.keys())}")
 
+        seen_env: set[str] = set()
         for deployment in client.get("deployments", []):
             env_id = deployment.get("environment", "")
-            if (client_id, env_id) in seen_client_env:
-                errors.append(f"deployment duplicado: {client_id}/{env_id}")
-            seen_client_env.add((client_id, env_id))
+            if env_id in seen_env:
+                errors.append(f"{client_id}: ambiente duplicado: {env_id}")
+            seen_env.add(env_id)
             try:
                 environment(env_id)
             except FileNotFoundError:
                 errors.append(f"{client_id}: ambiente inexistente: {env_id}")
 
             profile_ids: set[str] = set()
+            product_owner: dict[str, str] = {}   # produto -> profile (1 só por cliente/ambiente)
             for profile in deployment.get("profiles", []):
                 profile_id = profile.get("id", "")
                 if not ID_RE.fullmatch(profile_id):
@@ -55,12 +56,16 @@ def main() -> int:
                     errors.append(f"{client_id}/{env_id}: profile duplicado: {profile_id}")
                 profile_ids.add(profile_id)
 
-                selected = set(profile.get("products", []))
-                deployed |= selected
+                selected = profile.get("products", [])
+                deployed |= set(selected)
                 if not selected:
                     errors.append(f"{client_id}/{env_id}/{profile_id}: nenhum produto")
-                if not selected <= subscriptions:
-                    errors.append(f"{client_id}/{env_id}/{profile_id}: produto não contratado: {sorted(selected - subscriptions)}")
+                if not set(selected) <= subscriptions:
+                    errors.append(f"{client_id}/{env_id}/{profile_id}: produto não contratado: {sorted(set(selected) - subscriptions)}")
+                for pid in selected:
+                    if pid in product_owner:
+                        errors.append(f"{client_id}/{env_id}: produto {pid} em 2 profiles ({product_owner[pid]} e {profile_id}); um produto = um container")
+                    product_owner[pid] = profile_id
 
                 if not profile.get("telegram_secret"):
                     errors.append(f"{client_id}/{env_id}/{profile_id}: secret Telegram ausente")
@@ -74,20 +79,20 @@ def main() -> int:
                     errors.append(f"bot Telegram duplicado: {actual_bot}")
                 bot_usernames.add(actual_bot)
 
-            # Container único por cliente x ambiente; bancos/roles por produto x cliente.
-            container = f"hermes-{client_id}-{env_id}"
-            if ("container", container) in resources:
-                errors.append(f"container duplicado: {container}")
-            resources.add(("container", container))
-            for product_id in deployment_products(deployment):
-                if product_id not in catalog:
-                    continue
-                db = db_for(catalog[product_id], client_id)
-                for field in ("database", "role"):
-                    key = (field, db[field])
-                    if key in resources:
-                        errors.append(f"recurso duplicado: {field}={db[field]}")
-                    resources.add(key)
+                # Container único por profile; bancos/roles por produto x cliente.
+                container = f"hermes-{client_id}-{profile_id}-{env_id}"
+                if ("container", container) in resources:
+                    errors.append(f"container duplicado: {container}")
+                resources.add(("container", container))
+                for pid in selected:
+                    if pid not in catalog:
+                        continue
+                    db = db_for(catalog[pid], client_id)
+                    for field in ("database", "role"):
+                        key = (field, db[field])
+                        if key in resources:
+                            errors.append(f"recurso duplicado: {field}={db[field]}")
+                        resources.add(key)
 
         if subscriptions != deployed:
             errors.append(f"{client_id}: produto contratado sem deployment: {sorted(subscriptions - deployed)}")
@@ -97,16 +102,9 @@ def main() -> int:
         for error in errors:
             print(f"- {error}", file=sys.stderr)
         return 1
-    print(f"Inventário válido: {len(catalog)} produtos, {len(seen_client_env)} deployments")
+    profiles = sum(len(d.get("profiles", [])) for c in clients() for d in c.get("deployments", []))
+    print(f"Inventário válido: {len(catalog)} produtos, {len(bot_usernames)} profiles/containers ({profiles} no total)")
     return 0
-
-def deployment_products(deployment: dict) -> list[str]:
-    out: list[str] = []
-    for profile in deployment.get("profiles", []):
-        for pid in profile.get("products", []):
-            if pid not in out:
-                out.append(pid)
-    return out
 
 if __name__ == "__main__":
     raise SystemExit(main())

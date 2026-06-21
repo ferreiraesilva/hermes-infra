@@ -6,22 +6,27 @@ Este repositório define os ambientes, o Postgres compartilhado, os produtos
 contratados por cliente, seus deployments, nomes de recursos e referências de
 secrets. Os produtos continuam em repositórios próprios e nunca sobem Postgres.
 
-## Homologação inicial
+## Modelo
 
-Cada **cliente** é um container (`hermes-<cliente>-<ambiente>`) com um ou mais
-**profiles** dentro. Cada profile tem seu próprio bot Telegram e agrupa produtos;
-cada produto tem banco/role próprios.
+A unidade de instalação é o **profile**: 1 profile = 1 container = 1 bot Telegram
+= 1 `gateway run` (home default, supervisionado pelo s6, image-native). Um profile
+pertence a um cliente e agrupa **1+ produtos** que dividem o mesmo bot; cada produto
+tem **banco/role próprios** (`db_<produto>_<cliente>`).
 
-| Cliente | Container | Profile | Produtos | Bot |
+Produtos que servem o mesmo objetivo ficam juntos no mesmo profile (ex.: TaskMe +
+Investimentos num bot só). Produtos que operam sozinhos ganham profile próprio.
+
+| Cliente | Profile | Container | Produtos | Bot |
 |---|---|---|---|---|
-| Leonardo | `hermes-leonardo-hml` | `pessoal` | TaskMe | `TMHA_Leo_TM_Hml_bot` |
-| Leonardo | `hermes-leonardo-hml` | `corretores` | MinhaIncorporadora | `TMHA_Leo_MI_Hml_bot` |
-| EBM | `hermes-ebm-hml` | `corretores` | MinhaIncorporadora | `TMHA_EBM_MI_Hml_bot` |
-| City | `hermes-city-hml` | `interno` | TaskMe | `TMHA_City_TM_Hml_bot` |
-| City | `hermes-city-hml` | `corretores` | MinhaIncorporadora | `TMHA_City_MI_Hml_bot` |
+| Leonardo | `pessoal` | `hermes-leonardo-pessoal-hml` | TaskMe | `TMHA_Leo_TM_Hml_bot` |
+| Leonardo | `corretores` | `hermes-leonardo-corretores-hml` | MinhaIncorporadora | `TMHA_Leo_MI_Hml_bot` |
+| EBM | `corretores` | `hermes-ebm-corretores-hml` | MinhaIncorporadora | `TMHA_EBM_MI_Hml_bot` |
+| City | `interno` | `hermes-city-interno-hml` | TaskMe | `TMHA_City_TM_Hml_bot` |
+| City | `corretores` | `hermes-city-corretores-hml` | MinhaIncorporadora | `TMHA_City_MI_Hml_bot` |
 
 A separação por profile impede disputa entre hooks/personas. Os cinco profiles
-simultâneos precisam de cinco bots Telegram exclusivos.
+simultâneos precisam de cinco bots Telegram exclusivos (o Telegram rejeita polling
+concorrente do mesmo token).
 
 ## Secrets
 
@@ -32,37 +37,39 @@ Secrets não entram no Git. No host:
 ~/.config/hermes-infra/secrets/<ambiente>/<cliente>.env
 ```
 
-O arquivo do cliente contém 1 token Telegram por profile (chave = `telegram_secret`
-do inventário) e 1 senha por produto (`DB_<PRODUTO>_PASSWORD`), além de
-`TELEGRAM_ALLOWED_USERS` opcional. O arquivo comum contém credenciais do provedor
-de IA. Nenhum script copia, remove ou modifica dados de WhatsApp.
+O arquivo do cliente (1 por cliente, cobre todos os profiles dele) contém 1 token
+Telegram por profile (chave = `telegram_secret` do inventário) e 1 senha por
+produto (`DB_<PRODUTO>_PASSWORD`), além de `TELEGRAM_ALLOWED_USERS` opcional. O
+arquivo comum contém credenciais do provedor de IA. Há ainda um `auth.json`
+opcional em `secrets/<ambiente>/auth.json` (auth de LLM compartilhada — o deploy
+copia para cada container, pois profile novo não herda). Nenhum script copia,
+remove ou modifica dados de WhatsApp.
 
 ## Comandos
 
 ```bash
 python3 scripts/validate_inventory.py
-./scripts/deploy-instance.sh hml leonardo      # 1 container, todos os profiles do cliente
+./scripts/deploy-instance.sh hml leonardo            # todos os profiles do cliente (1 container cada)
+./scripts/deploy-instance.sh hml leonardo pessoal    # só um profile
 ```
 
-O deploy recebe `<ambiente> <cliente>` (não mais deployment) e provisiona o
-container único do cliente com todos os seus profiles. Exige `postgres-hml`
+O deploy recebe `<ambiente> <cliente> [profile]`. Sem profile, itera todos os
+profiles do cliente — cada um vira **seu próprio container**. Exige `postgres-hml`
 saudável; se ele não existir, falha sem criar outro. `prd` exige
 `HERMES_INFRA_CONFIRM_PRD=1` antes de qualquer SQL.
 
-## Profiles e gateways
+## Profile = container = bot
 
-Cada cliente é um container; dentro dele, cada **profile** é um `HERMES_HOME`
-próprio em `/opt/data/profiles/<id>` (`.env`, `config.yaml`, sessions e gateway
-isolados). O deploy, por profile: cria o profile (`hermes profile create`),
-escreve o token do bot no `.env` do profile, habilita os plugins
-(`hermes -p <id> plugins enable`) e sobe o gateway (`hermes -p <id> gateway
-start`). Um token de bot por profile — o Telegram rejeita polling concorrente do
-mesmo token.
+Cada profile roda como um container Hermes stock usando seu **home default**
+(`/opt/data`): o `.env` traz o token do bot daquele profile + credenciais de LLM,
+os produtos do profile são symlinkados em `/opt/data/plugins` e habilitados via
+`hermes plugins enable`, e o container roda o `gateway run` único
+(supervisionado pelo s6). Sem named-profiles internos, sem `gateway start`
+(systemd) — alinhado a como a imagem foi feita para Docker.
 
-> **Supervisão (pendência para o prompt-2):** o `gateway start` por profile não é
-> ressubido sozinho quando o container reinicia. Hoje basta reexecutar o deploy.
-> A supervisão definitiva (entrypoint que sobe todos os gateways do cliente)
-> entra na reestruturação GitOps.
+> **auth de LLM:** um profile/container novo não herda o `auth.json` do provider;
+> o deploy copia `secrets/<ambiente>/auth.json` para cada container. Em prod, cada
+> cliente terá sua própria chave de LLM.
 
 ## Convenção de nomes
 

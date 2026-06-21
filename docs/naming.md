@@ -33,10 +33,10 @@ deve ser reaproveitado entre deployments simultâneos.
 ## Recursos de infraestrutura
 
 ```text
-Container: hermes-<cliente>-<ambiente>      # 1 por cliente
-Database:  db_<produto>_<cliente>           # 1 por (produto x cliente)
+Container: hermes-<cliente>-<profile>-<ambiente>   # 1 por profile (= 1 bot)
+Database:  db_<produto>_<cliente>                  # 1 por (produto x cliente)
 Role:      role_<produto>_<cliente>
-Variável:  DB_<PRODUTO>_URL                  # PRODUTO = db_slug em maiúsculas
+Variável:  DB_<PRODUTO>_URL                         # PRODUTO = db_slug em maiúsculas
 ```
 
 `<produto>` é o `db_slug` do catálogo (ex.: `taskme`, `incorporadora`), não o id.
