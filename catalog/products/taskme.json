@@ -6,5 +6,11 @@
   "ref_hml": "feature/taskme-v1",
   "plugin_name": "taskme",
   "migrations": "migrations",
-  "env": {"TZ": "America/Sao_Paulo", "HERMES_SEND_CMD": "hermes send"}
+  "env": {
+    "TZ": "America/Sao_Paulo",
+    "HERMES_SEND_CMD": "hermes send",
+    "TASKME_MODE": "telegram_test",
+    "TASKME_TG_TEST_PHONE": "5562993119454",
+    "TASKME_NOTIFY_CHANNELS": "telegram"
+  }
 }
