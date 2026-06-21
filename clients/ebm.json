@@ -3,13 +3,16 @@
   "subscriptions": ["minhaincorporadora"],
   "deployments": [
     {
-      "id": "ebm-corretores",
       "environment": "hml",
-      "audience": "corretores",
-      "products": ["minhaincorporadora"],
-      "telegram_code": "MI",
-      "telegram_bot_username": "TMHA_EBM_MI_Hml_bot",
-      "telegram_secret": "TMHA_EBM_MI_HML_BOT_TOKEN"
+      "profiles": [
+        {
+          "id": "corretores",
+          "products": ["minhaincorporadora"],
+          "telegram_code": "MI",
+          "telegram_bot_username": "TMHA_EBM_MI_Hml_bot",
+          "telegram_secret": "TMHA_EBM_MI_HML_BOT_TOKEN"
+        }
+      ]
     }
   ]
 }

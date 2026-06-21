@@ -1,10 +1,17 @@
 #!/usr/bin/env python3
+"""Inventário do hermes-infra.
+
+Unidade de instalação = cliente x ambiente = 1 container Hermes.
+Cada cliente tem 1 deployment por ambiente, com 1+ profiles dentro.
+Cada profile agrupa produtos; cada produto tem seu próprio banco/role.
+"""
 from __future__ import annotations
 import json, re, sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 ID_RE = re.compile(r"^[a-z][a-z0-9-]{1,62}$")
+SLUG_RE = re.compile(r"^[a-z][a-z0-9_]{1,40}$")
 
 def load_json(path: Path) -> dict:
     with path.open(encoding="utf-8") as handle:
@@ -19,36 +26,79 @@ def clients() -> list[dict]:
 def environment(env_id: str) -> dict:
     return load_json(ROOT / "environments" / env_id / "environment.json")
 
-def find_deployment(env_id: str, deployment_id: str) -> tuple[dict, dict]:
+def find_deployment(env_id: str, client_id: str) -> tuple[dict, dict]:
     for client in clients():
+        if client["client"]["id"] != client_id:
+            continue
         for deployment in client["deployments"]:
-            if deployment["environment"] == env_id and deployment["id"] == deployment_id:
+            if deployment["environment"] == env_id:
                 return client, deployment
-    raise KeyError(f"deployment não encontrado: {env_id}/{deployment_id}")
+    raise KeyError(f"deployment não encontrado: {env_id}/{client_id}")
 
-def derived(client: dict, deployment: dict) -> dict:
-    env_id, deployment_id = deployment["environment"], deployment["id"]
-    db_id = f"{deployment_id.replace('-', '_')}_{env_id}"
+def db_for(product: dict, client_id: str) -> dict:
+    """Nome de banco/role/var por (produto x cliente). Sem ambiente no nome:
+    o ambiente já é a separação física (postgres-hml vs postgres-prd)."""
+    slug = product["db_slug"]
     return {
-        "client_id": client["client"]["id"], "deployment_id": deployment_id,
-        "environment": env_id, "container_name": f"hermes-{deployment_id}-{env_id}",
-        "compose_project": f"hermes-{deployment_id}-{env_id}",
-        "database_name": f"hermes_{db_id}", "database_role": f"hermes_{db_id}"
+        "product": product["id"],
+        "db_slug": slug,
+        "database": f"db_{slug}_{client_id}",
+        "role": f"role_{slug}_{client_id}",
+        "env_var": f"DB_{slug.upper()}_URL",
+        "plugin_name": product["plugin_name"],
+        "local_source_hml": product.get("local_source_hml", ""),
+        "ref_hml": product.get("ref_hml", ""),
+        "migrations": product.get("migrations", ""),
+        "seed_hml": product.get("seed_hml", ""),
+        "env": product.get("env", {}),
     }
 
-def shell(env_id: str, deployment_id: str) -> None:
-    client, deployment = find_deployment(env_id, deployment_id)
+def plan(env_id: str, client_id: str) -> dict:
+    client, deployment = find_deployment(env_id, client_id)
     env = environment(env_id)
-    data = derived(client, deployment) | {
-        "data_root": env["data_root"], "runtime_root": env["runtime_root"],
-        "postgres_container": env["postgres_container"], "postgres_host": env["postgres_host"],
-        "postgres_port": str(env["postgres_port"]), "products": ",".join(deployment["products"])
+    catalog = products()
+
+    # Produtos únicos do cliente neste ambiente (união dos profiles).
+    product_ids: list[str] = []
+    for profile in deployment["profiles"]:
+        for pid in profile["products"]:
+            if pid not in product_ids:
+                product_ids.append(pid)
+
+    databases = [db_for(catalog[pid], client_id) for pid in product_ids]
+
+    profiles = [
+        {
+            "id": profile["id"],
+            "products": profile["products"],
+            "plugins": [catalog[pid]["plugin_name"] for pid in profile["products"]],
+            # Pares plugin->fonte (db_slug) para symlink do código dentro do profile.
+            "plugin_sources": [
+                {"plugin": catalog[pid]["plugin_name"], "db_slug": catalog[pid]["db_slug"]}
+                for pid in profile["products"]
+            ],
+            "telegram_bot_username": profile["telegram_bot_username"],
+            "telegram_secret": profile["telegram_secret"],
+        }
+        for profile in deployment["profiles"]
+    ]
+
+    return {
+        "client_id": client_id,
+        "environment": env_id,
+        "container_name": f"hermes-{client_id}-{env_id}",
+        "compose_project": f"hermes-{client_id}-{env_id}",
+        "data_dir": f"{env['data_root']}/{client_id}",
+        "postgres_container": env["postgres_container"],
+        "postgres_host": env["postgres_host"],
+        "postgres_port": env["postgres_port"],
+        "databases": databases,
+        "profiles": profiles,
     }
-    for key, value in data.items():
-        if not re.fullmatch(r"[A-Za-z0-9_./,:-]+", value):
-            raise ValueError(f"valor inseguro para shell: {key}")
-        print(f"{key.upper()}={value}")
 
 if __name__ == "__main__":
-    if len(sys.argv) == 4 and sys.argv[1] == "shell": shell(sys.argv[2], sys.argv[3])
-    else: raise SystemExit("uso: inventory.py shell <ambiente> <deployment>")
+    if len(sys.argv) == 4 and sys.argv[1] == "plan":
+        json.dump(plan(sys.argv[2], sys.argv[3]), sys.stdout, ensure_ascii=False)
+        print()
+    else:
+        raise SystemExit("uso: inventory.py plan <ambiente> <cliente>")

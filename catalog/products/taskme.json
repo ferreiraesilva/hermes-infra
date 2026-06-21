@@ -2,6 +2,7 @@
   "id": "taskme",
   "name": "TaskMe",
   "code": "TM",
+  "db_slug": "taskme",
   "repository": "https://github.com/ferreiraesilva/TaskMe.git",
   "local_source_hml": "/home/leonardo/projects/TaskMe",
   "ref_hml": "feature/taskme-v1",

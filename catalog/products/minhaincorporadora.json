@@ -2,6 +2,7 @@
   "id": "minhaincorporadora",
   "name": "MinhaIncorporadora",
   "code": "MI",
+  "db_slug": "incorporadora",
   "repository": "https://github.com/ferreiraesilva/MinhaIncorporadora.git",
   "local_source_hml": "/home/leonardo/projects/MinhaIncorporadora",
   "ref_hml": "feature/minhaincorp-v1",

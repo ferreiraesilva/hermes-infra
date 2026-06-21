@@ -3,22 +3,23 @@
   "subscriptions": ["taskme", "minhaincorporadora"],
   "deployments": [
     {
-      "id": "city-interno",
       "environment": "hml",
-      "audience": "interno",
-      "products": ["taskme"],
-      "telegram_code": "TM",
-      "telegram_bot_username": "TMHA_City_TM_Hml_bot",
-      "telegram_secret": "TMHA_CITY_TM_HML_BOT_TOKEN"
-    },
-    {
-      "id": "city-corretores",
-      "environment": "hml",
-      "audience": "corretores",
-      "products": ["minhaincorporadora"],
-      "telegram_code": "MI",
-      "telegram_bot_username": "TMHA_City_MI_Hml_bot",
-      "telegram_secret": "TMHA_CITY_MI_HML_BOT_TOKEN"
+      "profiles": [
+        {
+          "id": "interno",
+          "products": ["taskme"],
+          "telegram_code": "TM",
+          "telegram_bot_username": "TMHA_City_TM_Hml_bot",
+          "telegram_secret": "TMHA_CITY_TM_HML_BOT_TOKEN"
+        },
+        {
+          "id": "corretores",
+          "products": ["minhaincorporadora"],
+          "telegram_code": "MI",
+          "telegram_bot_username": "TMHA_City_MI_Hml_bot",
+          "telegram_secret": "TMHA_CITY_MI_HML_BOT_TOKEN"
+        }
+      ]
     }
   ]
 }

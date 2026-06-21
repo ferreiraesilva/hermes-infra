@@ -33,9 +33,14 @@ deve ser reaproveitado entre deployments simultâneos.
 ## Recursos de infraestrutura
 
 ```text
-Container: hermes-<deployment>-<ambiente>
-Database:  hermes_<deployment_com_underscore>_<ambiente>
-Role:      hermes_<deployment_com_underscore>_<ambiente>
+Container: hermes-<cliente>-<ambiente>      # 1 por cliente
+Database:  db_<produto>_<cliente>           # 1 por (produto x cliente)
+Role:      role_<produto>_<cliente>
+Variável:  DB_<PRODUTO>_URL                  # PRODUTO = db_slug em maiúsculas
 ```
+
+`<produto>` é o `db_slug` do catálogo (ex.: `taskme`, `incorporadora`), não o id.
+O ambiente não entra no nome do banco — a separação física já é o cluster
+(`postgres-hml` vs `postgres-prd`).
 
 O inventário e `scripts/validate_inventory.py` são a fonte da verdade.
