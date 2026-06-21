@@ -1,5 +1,5 @@
 {
-  "client": {"id": "city", "name": "City"},
+  "client": {"id": "city", "name": "City", "code": "City"},
   "subscriptions": ["taskme", "minhaincorporadora"],
   "deployments": [
     {
@@ -7,14 +7,18 @@
       "environment": "hml",
       "audience": "interno",
       "products": ["taskme"],
-      "telegram_secret": "HML_CITY_INTERNO_TELEGRAM_BOT_TOKEN"
+      "telegram_code": "TM",
+      "telegram_bot_username": "TMHA_City_TM_Hml_bot",
+      "telegram_secret": "TMHA_CITY_TM_HML_BOT_TOKEN"
     },
     {
       "id": "city-corretores",
       "environment": "hml",
       "audience": "corretores",
       "products": ["minhaincorporadora"],
-      "telegram_secret": "HML_CITY_CORRETORES_TELEGRAM_BOT_TOKEN"
+      "telegram_code": "MI",
+      "telegram_bot_username": "TMHA_City_MI_Hml_bot",
+      "telegram_secret": "TMHA_CITY_MI_HML_BOT_TOKEN"
     }
   ]
 }

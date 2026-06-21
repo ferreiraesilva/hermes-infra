@@ -40,3 +40,8 @@ python3 scripts/validate_inventory.py
 ```
 
 O deploy exige `postgres-hml` saudável; se ele não existir, falha sem criar outro.
+
+## Convenção de nomes
+
+Bots e recursos seguem obrigatoriamente [docs/naming.md](docs/naming.md). O
+validador rejeita usernames Telegram fora do padrão `TMHA`.

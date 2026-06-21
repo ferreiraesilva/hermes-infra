@@ -4,7 +4,7 @@ import sys
 from inventory import ID_RE, clients, derived, environment, products
 
 def main() -> int:
-    errors, catalog, seen, resources = [], products(), set(), set()
+    errors, catalog, seen, resources, bot_usernames = [], products(), set(), set(), set()
     for product_id, product in catalog.items():
         if not ID_RE.fullmatch(product_id): errors.append(f"produto inválido: {product_id}")
         if not product.get("plugin_name") or not product.get("repository"): errors.append(f"produto incompleto: {product_id}")
@@ -24,6 +24,18 @@ def main() -> int:
             if not selected: errors.append(f"{deployment_id}: nenhum produto")
             if not selected <= subscriptions: errors.append(f"{deployment_id}: produto não contratado: {sorted(selected-subscriptions)}")
             if not deployment.get("telegram_secret"): errors.append(f"{deployment_id}: secret Telegram ausente")
+            telegram_code = deployment.get("telegram_code", "")
+            client_code = client.get("client", {}).get("code", "")
+            env_code = {"hml": "Hml", "prd": "Prd"}.get(env_id, env_id.title())
+            expected_bot = f"TMHA_{client_code}_{telegram_code}_{env_code}_bot"
+            actual_bot = deployment.get("telegram_bot_username", "")
+            if actual_bot != expected_bot:
+                errors.append(
+                    f"{deployment_id}: bot fora do padrão; esperado {expected_bot}, recebido {actual_bot!r}"
+                )
+            if actual_bot in bot_usernames:
+                errors.append(f"bot Telegram duplicado: {actual_bot}")
+            bot_usernames.add(actual_bot)
             for field in ("container_name", "database_name", "database_role"):
                 value = derived(client, deployment)[field]
                 resource_key = (field, value)
