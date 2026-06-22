@@ -44,8 +44,13 @@ for cf in sorted(glob.glob(os.path.join(root, "clients/*.json"))):
 PY
 )"
 
-while IFS=$'\t' read -r client kind var label; do
-  [[ -n "$client" ]] || continue
+# Lê os tokens do terminal (/dev/tty), nunca do fluxo de dados do loop.
+[[ -r /dev/tty ]] || { echo "sem terminal interativo (/dev/tty); rode num shell normal" >&2; exit 1; }
+
+mapfile -t ROWS <<< "$rows"
+for row in "${ROWS[@]}"; do
+  [[ -n "$row" ]] || continue
+  IFS=$'\t' read -r client kind var label <<< "$row"
   f="$S/$client.env"
   cur="$(getval "$f" "$var")"
   if [[ "$kind" == "dbpw" ]]; then
@@ -57,11 +62,14 @@ while IFS=$'\t' read -r client kind var label; do
       echo "[$client] $var: senha já definida (mantida)"
     fi
   else
-    [[ -n "$cur" ]] && echo "[$client] $var já definido ($label) — Enter mantém, ou cole novo:"
-    read -rsp "  Token de $label  [$var]: " tok; echo
-    if [[ -n "$tok" ]]; then upsert "$f" "$var" "$tok"; echo "  salvo"; else echo "  mantido"; fi
+    if [[ -n "$cur" ]]; then
+      printf '[%s] %s já definido (%s) — Enter mantém, ou cole novo:\n' "$client" "$var" "$label" >&2
+    fi
+    printf '  Token de %s  [%s]: ' "$label" "$var" >&2
+    read -rs tok </dev/tty; echo >&2
+    if [[ -n "$tok" ]]; then upsert "$f" "$var" "$tok"; echo "  salvo"; else echo "  (vazio — pulado)"; fi
     unset tok
   fi
-done <<< "$rows"
+done
 
 echo "Pronto. Secrets em $S (chmod 600). Rode o deploy: ./scripts/deploy-instance.sh $ENVIRONMENT <cliente>"
