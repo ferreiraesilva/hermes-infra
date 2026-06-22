@@ -24,6 +24,15 @@ def products() -> dict[str, dict]:
 def clients() -> list[dict]:
     return [load_json(path) for path in sorted((ROOT / "clients").glob("*.json"))]
 
+def client_rows() -> list[tuple[str, str]]:
+    return [(c["client"]["id"], c["client"]["name"]) for c in clients()]
+
+def environment_ids(client_id: str) -> list[str]:
+    for client in clients():
+        if client["client"]["id"] == client_id:
+            return [d["environment"] for d in client["deployments"]]
+    raise KeyError(f"cliente não encontrado: {client_id}")
+
 def environment(env_id: str) -> dict:
     return load_json(ROOT / "environments" / env_id / "environment.json")
 
@@ -96,10 +105,21 @@ def plan(env_id: str, client_id: str, profile_id: str) -> dict:
     }
 
 if __name__ == "__main__":
-    if len(sys.argv) == 5 and sys.argv[1] == "plan":
-        json.dump(plan(sys.argv[2], sys.argv[3], sys.argv[4]), sys.stdout, ensure_ascii=False)
-        print()
-    elif len(sys.argv) == 4 and sys.argv[1] == "profiles":
-        print("\n".join(profile_ids(sys.argv[2], sys.argv[3])))
-    else:
-        raise SystemExit("uso: inventory.py plan <ambiente> <cliente> <profile> | profiles <ambiente> <cliente>")
+    try:
+        if len(sys.argv) == 2 and sys.argv[1] == "clients":
+            for client_id, name in client_rows():
+                print(f"{client_id}\t{name}")
+        elif len(sys.argv) == 3 and sys.argv[1] == "environments":
+            print("\n".join(environment_ids(sys.argv[2])))
+        elif len(sys.argv) == 5 and sys.argv[1] == "plan":
+            json.dump(plan(sys.argv[2], sys.argv[3], sys.argv[4]), sys.stdout, ensure_ascii=False)
+            print()
+        elif len(sys.argv) == 4 and sys.argv[1] == "profiles":
+            print("\n".join(profile_ids(sys.argv[2], sys.argv[3])))
+        else:
+            raise SystemExit(
+                "uso: inventory.py clients | environments <cliente> | "
+                "plan <ambiente> <cliente> <profile> | profiles <ambiente> <cliente>"
+            )
+    except (KeyError, FileNotFoundError) as exc:
+        raise SystemExit(exc.args[0] if exc.args else str(exc)) from None

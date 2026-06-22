@@ -22,7 +22,11 @@ upsert() {  # file key value
   printf '%s=%s\n' "$k" "$v" >> "$f.tmp"
   mv "$f.tmp" "$f"; chmod 600 "$f"
 }
-getval() { grep "^$2=" "$1" 2>/dev/null | head -1 | cut -d= -f2-; }
+getval() {
+  local f="$1" k="$2"
+  [[ -f "$f" ]] || return 0
+  grep -m1 "^$k=" "$f" 2>/dev/null | cut -d= -f2- || true
+}
 
 # Emite, do inventário: cliente \t kind(token|dbpw) \t var \t rótulo
 rows="$(python3 - "$ROOT" "$ENVIRONMENT" <<'PY'
@@ -43,6 +47,11 @@ for cf in sorted(glob.glob(os.path.join(root, "clients/*.json"))):
             print(f"{cid}\tdbpw\tDB_{slug.upper()}_PASSWORD\t{cat[pid]['name']}")
 PY
 )"
+
+[[ -n "$rows" ]] || {
+  echo "nenhum profile encontrado para o ambiente '$ENVIRONMENT'" >&2
+  exit 1
+}
 
 # Lê os tokens do terminal (/dev/tty), nunca do fluxo de dados do loop.
 [[ -r /dev/tty ]] || { echo "sem terminal interativo (/dev/tty); rode num shell normal" >&2; exit 1; }

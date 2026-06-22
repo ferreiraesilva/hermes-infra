@@ -5,6 +5,7 @@
 # `gateway run` do seu home default (image-native, supervisionado pelo s6).
 #
 # Uso:
+#   ./deploy-instance.sh                          # escolha cliente e ambiente
 #   ./deploy-instance.sh hml leonardo pessoal     # um profile
 #   ./deploy-instance.sh hml leonardo             # todos os profiles do cliente
 set -euo pipefail
@@ -13,12 +14,50 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENVIRONMENT="${1:-}"
 CLIENT="${2:-}"
 PROFILE="${3:-}"
-[[ -n "$ENVIRONMENT" && -n "$CLIENT" ]] || { echo "uso: $0 <hml|prd> <cliente> [profile]" >&2; exit 2; }
+
+choose() {  # prompt; lê linhas "id<TAB>rótulo" da entrada padrão
+  local prompt="$1" row choice i id label
+  local -a options=()
+  mapfile -t options
+  ((${#options[@]} > 0)) || { echo "nenhuma opção disponível para $prompt" >&2; return 1; }
+
+  printf '%s:\n' "$prompt" >&2
+  for i in "${!options[@]}"; do
+    IFS=$'\t' read -r id label <<< "${options[$i]}"
+    printf '  %d) %s' "$((i + 1))" "$id" >&2
+    [[ -n "$label" && "$label" != "$id" ]] && printf ' — %s' "$label" >&2
+    printf '\n' >&2
+  done
+  printf 'Escolha [1-%d]: ' "${#options[@]}" >&2
+  read -r choice </dev/tty || { echo >&2; return 1; }
+  [[ "$choice" =~ ^[0-9]+$ ]] && ((choice >= 1 && choice <= ${#options[@]})) || {
+    echo "opção inválida: $choice" >&2
+    return 1
+  }
+  IFS=$'\t' read -r id label <<< "${options[$((choice - 1))]}"
+  printf '%s' "$id"
+}
+
+if [[ -z "$ENVIRONMENT" && -z "$CLIENT" ]]; then
+  [[ -r /dev/tty ]] || { echo "modo interativo exige um terminal; use: $0 <ambiente> <cliente> [profile]" >&2; exit 2; }
+  CLIENT="$(python3 "$ROOT/scripts/inventory.py" clients | choose "Cliente")"
+  ENVIRONMENT="$(python3 "$ROOT/scripts/inventory.py" environments "$CLIENT" | awk '{print $0 "\t" $0}' | choose "Ambiente")"
+elif [[ -z "$ENVIRONMENT" || -z "$CLIENT" ]]; then
+  echo "uso: $0 [<ambiente> <cliente> [profile]]" >&2
+  echo "sem argumentos, o script abre a seleção interativa" >&2
+  exit 2
+fi
 
 # Caminho do binário hermes DENTRO do container (não está no PATH).
 HERMES_BIN="${HERMES_BIN:-/opt/hermes/.venv/bin/hermes}"
 
 python3 "$ROOT/scripts/validate_inventory.py"
+
+if ! python3 "$ROOT/scripts/inventory.py" profiles "$ENVIRONMENT" "$CLIENT" >/dev/null; then
+  echo "clientes disponíveis:" >&2
+  python3 "$ROOT/scripts/inventory.py" clients | sed 's/^/  /' >&2
+  exit 2
+fi
 
 # Sem profile explícito: itera todos os profiles do cliente (1 container cada).
 if [[ -z "$PROFILE" ]]; then
@@ -160,10 +199,23 @@ export HERMES_UID="$(id -u)" HERMES_GID="$(id -g)" COMPOSE_PROJECT_NAME="$COMPOS
 docker compose -f "$ROOT/platform/hermes/compose.yml" up -d
 sleep 8
 
+# Fixa provider/modelo declarados no common.env. Isso evita que um auth.json de
+# um provider seja combinado com o modelo persistido anteriormente por outro.
+if [[ -n "${HERMES_INFERENCE_MODEL:-}" ]]; then
+  docker exec "$CONTAINER_NAME" "$HERMES_BIN" config set model.default "$HERMES_INFERENCE_MODEL"
+fi
+if [[ -n "${HERMES_INFERENCE_PROVIDER:-}" ]]; then
+  docker exec "$CONTAINER_NAME" "$HERMES_BIN" config set model.provider "$HERMES_INFERENCE_PROVIDER"
+fi
+if [[ -n "${HERMES_INFERENCE_BASE_URL:-}" ]]; then
+  docker exec "$CONTAINER_NAME" "$HERMES_BIN" config set model.base_url "$HERMES_INFERENCE_BASE_URL"
+fi
+
 # Habilita os plugins do profile no config.yaml e reinicia p/ recarregar.
 while IFS= read -r plugin; do
   [[ -n "$plugin" ]] || continue
   docker exec "$CONTAINER_NAME" "$HERMES_BIN" plugins enable "$plugin" || true
+  docker exec "$CONTAINER_NAME" sh -c "[ -f /opt/data/plugins/$plugin/requirements.txt ] && uv pip install -q --python /opt/hermes/.venv/bin/python -r /opt/data/plugins/$plugin/requirements.txt" || true
 done < <(python3 -c "import json,sys;print('\n'.join(json.load(open(sys.argv[1]))['plugins']))" "$PLAN")
 docker restart "$CONTAINER_NAME" >/dev/null
 

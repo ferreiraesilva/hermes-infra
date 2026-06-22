@@ -45,6 +45,10 @@ opcional em `secrets/<ambiente>/auth.json` (auth de LLM compartilhada — o depl
 copia para cada container, pois profile novo não herda). Nenhum script copia,
 remove ou modifica dados de WhatsApp.
 
+Quando definidos no arquivo comum, `HERMES_INFERENCE_PROVIDER` e
+`HERMES_INFERENCE_MODEL` fixam a combinação usada por todos os containers do
+ambiente e evitam combinar um modelo de um provider com credenciais de outro.
+
 **Divisão segredo × não-segredo.** O que *não* é segredo (username do bot,
 mapeamento cliente/profile/produto) mora no inventário (git). O que *é* segredo
 (token do bot, senha de banco) nunca entra no git:
@@ -59,6 +63,7 @@ mapeamento cliente/profile/produto) mora no inventário (git). O que *é* segred
 
 ```bash
 python3 scripts/validate_inventory.py
+./scripts/deploy-instance.sh                          # escolhe cliente e ambiente em listas
 ./scripts/deploy-instance.sh hml leonardo            # todos os profiles do cliente (1 container cada)
 ./scripts/deploy-instance.sh hml leonardo pessoal    # só um profile
 ```
