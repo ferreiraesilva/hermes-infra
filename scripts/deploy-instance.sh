@@ -50,6 +50,7 @@ fi
 
 # Caminho do binário hermes DENTRO do container (não está no PATH).
 HERMES_BIN="${HERMES_BIN:-/opt/hermes/.venv/bin/hermes}"
+HERMES_IMAGE="${HERMES_IMAGE:-nousresearch/hermes-agent@sha256:4b50f1201f280e28887f6a2d7bbcd50fe370e0da3e92417d6e51778b485cf18e}"
 
 python3 "$ROOT/scripts/validate_inventory.py"
 
@@ -80,6 +81,9 @@ POSTGRES_CONTAINER="$(field postgres_container)"
 POSTGRES_HOST="$(field postgres_host)"
 POSTGRES_PORT="$(field postgres_port)"
 TELEGRAM_SECRET="$(field telegram_secret)"
+DASHBOARD_ENABLED="$(python3 -c "import json,sys;print(str(json.load(open(sys.argv[1])).get('dashboard',{}).get('enabled', False)).lower())" "$PLAN")"
+DASHBOARD_HOST="$(python3 -c "import json,sys;print(json.load(open(sys.argv[1])).get('dashboard',{}).get('host', '0.0.0.0'))" "$PLAN")"
+DASHBOARD_INSECURE="$(python3 -c "import json,sys;print(str(json.load(open(sys.argv[1])).get('dashboard',{}).get('insecure', False)).lower())" "$PLAN")"
 
 # PRD nunca roda SQL sem aprovação explícita (até o GitOps do prompt-2 existir).
 if [[ "$ENVIRONMENT" == "prd" && "${HERMES_INFRA_CONFIRM_PRD:-}" != "1" ]]; then
@@ -193,31 +197,61 @@ done < <(db_rows)
 } > "$DATA_DIR/.env"
 chmod 600 "$DATA_DIR/.env"
 
+hermes_one_shot() {
+  docker run --rm \
+    --user "$(id -u):$(id -g)" \
+    --entrypoint "$HERMES_BIN" \
+    -e HERMES_HOME=/opt/data \
+    -e HOME=/opt/data \
+    -v "$DATA_DIR:/opt/data" \
+    "$HERMES_IMAGE" "$@"
+}
+
+# Prepara config.yaml antes do primeiro boot do gateway. Assim o container real
+# já sobe com provider/modelo/plugins corretos, sem precisar emitir warnings de
+# configuração no boot inicial e corrigir depois com restart.
+if [[ -n "${HERMES_INFERENCE_MODEL:-}" ]]; then
+  hermes_one_shot config set model.default "$HERMES_INFERENCE_MODEL"
+fi
+if [[ -n "${HERMES_INFERENCE_PROVIDER:-}" ]]; then
+  hermes_one_shot config set model.provider "$HERMES_INFERENCE_PROVIDER"
+fi
+if [[ -n "${HERMES_INFERENCE_BASE_URL:-}" ]]; then
+  hermes_one_shot config set model.base_url "$HERMES_INFERENCE_BASE_URL"
+fi
+
+while IFS= read -r plugin; do
+  [[ -n "$plugin" ]] || continue
+  hermes_one_shot plugins enable "$plugin" || true
+done < <(python3 -c "import json,sys;print('\n'.join(json.load(open(sys.argv[1]))['plugins']))" "$PLAN")
+
 # --- Container do profile (1 gateway run, profile default) -------------------
+export HERMES_IMAGE
 export HERMES_CONTAINER_NAME="$CONTAINER_NAME" HERMES_DATA_DIR="$DATA_DIR"
 export HERMES_UID="$(id -u)" HERMES_GID="$(id -g)" COMPOSE_PROJECT_NAME="$COMPOSE_PROJECT"
+if [[ "$DASHBOARD_ENABLED" == "true" ]]; then
+  export HERMES_DASHBOARD=true
+  export HERMES_DASHBOARD_HOST="$DASHBOARD_HOST"
+  export HERMES_DASHBOARD_INSECURE="$DASHBOARD_INSECURE"
+else
+  unset HERMES_DASHBOARD HERMES_DASHBOARD_HOST HERMES_DASHBOARD_INSECURE
+fi
 docker compose -f "$ROOT/platform/hermes/compose.yml" up -d
 sleep 8
 
-# Fixa provider/modelo declarados no common.env. Isso evita que um auth.json de
-# um provider seja combinado com o modelo persistido anteriormente por outro.
-if [[ -n "${HERMES_INFERENCE_MODEL:-}" ]]; then
-  docker exec "$CONTAINER_NAME" "$HERMES_BIN" config set model.default "$HERMES_INFERENCE_MODEL"
-fi
-if [[ -n "${HERMES_INFERENCE_PROVIDER:-}" ]]; then
-  docker exec "$CONTAINER_NAME" "$HERMES_BIN" config set model.provider "$HERMES_INFERENCE_PROVIDER"
-fi
-if [[ -n "${HERMES_INFERENCE_BASE_URL:-}" ]]; then
-  docker exec "$CONTAINER_NAME" "$HERMES_BIN" config set model.base_url "$HERMES_INFERENCE_BASE_URL"
-fi
-
-# Habilita os plugins do profile no config.yaml e reinicia p/ recarregar.
+# Instala requirements dos plugins no ambiente Python do container real e
+# reinicia p/ recarregar se algo foi instalado.
+NEEDS_RESTART=false
 while IFS= read -r plugin; do
   [[ -n "$plugin" ]] || continue
-  docker exec "$CONTAINER_NAME" "$HERMES_BIN" plugins enable "$plugin" || true
-  docker exec "$CONTAINER_NAME" sh -c "[ -f /opt/data/plugins/$plugin/requirements.txt ] && uv pip install -q --python /opt/hermes/.venv/bin/python -r /opt/data/plugins/$plugin/requirements.txt" || true
+  if docker exec "$CONTAINER_NAME" sh -c "[ -f /opt/data/plugins/$plugin/requirements.txt ]"; then
+    docker exec "$CONTAINER_NAME" sh -c "uv pip install -q --python /opt/hermes/.venv/bin/python -r /opt/data/plugins/$plugin/requirements.txt" || true
+    NEEDS_RESTART=true
+  fi
 done < <(python3 -c "import json,sys;print('\n'.join(json.load(open(sys.argv[1]))['plugins']))" "$PLAN")
-docker restart "$CONTAINER_NAME" >/dev/null
+if [[ "$NEEDS_RESTART" == "true" ]]; then
+  docker restart "$CONTAINER_NAME" >/dev/null
+fi
 
 docker inspect -f 'name={{.Name}} status={{.State.Status}} restarts={{.RestartCount}}' "$CONTAINER_NAME"
 docker exec "$CONTAINER_NAME" "$HERMES_BIN" plugins list 2>/dev/null || true

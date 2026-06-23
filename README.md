@@ -19,14 +19,17 @@ Investimentos num bot só). Produtos que operam sozinhos ganham profile próprio
 | Cliente | Profile | Container | Produtos | Bot |
 |---|---|---|---|---|
 | Leonardo | `pessoal` | `hermes-leonardo-pessoal-hml` | TaskMe | `TMHA_Leo_TM_Hml_bot` |
-| Leonardo | `corretores` | `hermes-leonardo-corretores-hml` | MinhaIncorporadora | `TMHA_Leo_MI_Hml_bot` |
 | EBM | `corretores` | `hermes-ebm-corretores-hml` | MinhaIncorporadora | `TMHA_EBM_MI_Hml_bot` |
 | City | `interno` | `hermes-city-interno-hml` | TaskMe | `TMHA_City_TM_Hml_bot` |
 | City | `corretores` | `hermes-city-corretores-hml` | MinhaIncorporadora | `TMHA_City_MI_Hml_bot` |
 
-A separação por profile impede disputa entre hooks/personas. Os cinco profiles
-simultâneos precisam de cinco bots Telegram exclusivos (o Telegram rejeita polling
+A separação por profile impede disputa entre hooks/personas. Os profiles
+simultâneos precisam de bots Telegram exclusivos (o Telegram rejeita polling
 concorrente do mesmo token).
+
+Leonardo mantém apenas o profile `pessoal` em homologação por enquanto. O antigo
+`hermes-leonardo-corretores-hml` deve ser removido do host e não deve ser
+recriado pelo deploy.
 
 ## Secrets
 
@@ -85,6 +88,18 @@ os produtos do profile são symlinkados em `/opt/data/plugins` e habilitados via
 > **auth de LLM:** um profile/container novo não herda o `auth.json` do provider;
 > o deploy copia `secrets/<ambiente>/auth.json` para cada container. Em prod, cada
 > cliente terá sua própria chave de LLM.
+
+## Dashboard por profile
+
+O dashboard é uma capacidade nativa do container Hermes, assim como `hermes chat`
+e `hermes gateway`. Qualquer profile pode declarar `dashboard.enabled=true` no
+inventário. Quando habilitado, o deploy habilita o serviço s6 de dashboard dentro
+do mesmo container do profile, compartilhando o mesmo home (`/opt/data`) e sem
+criar outro container ou outro gateway.
+
+No profile `leonardo/pessoal`, o dashboard fica exposto em `0.0.0.0` com
+`--insecure`, porque este HML roda apenas na infraestrutura doméstica. Essa regra
+não deve ser copiada automaticamente para clientes ou produção.
 
 ## Convenção de nomes
 

@@ -1,6 +1,6 @@
 {
   "client": {"id": "leonardo", "name": "Leonardo Ferreira", "code": "Leo"},
-  "subscriptions": ["taskme", "minhaincorporadora"],
+  "subscriptions": ["taskme"],
   "deployments": [
     {
       "environment": "hml",
@@ -10,14 +10,12 @@
           "products": ["taskme"],
           "telegram_code": "TM",
           "telegram_bot_username": "TMHA_Leo_TM_Hml_bot",
-          "telegram_secret": "TMHA_LEO_TM_HML_BOT_TOKEN"
-        },
-        {
-          "id": "corretores",
-          "products": ["minhaincorporadora"],
-          "telegram_code": "MI",
-          "telegram_bot_username": "TMHA_Leo_MI_Hml_bot",
-          "telegram_secret": "TMHA_LEO_MI_HML_BOT_TOKEN"
+          "telegram_secret": "TMHA_LEO_TM_HML_BOT_TOKEN",
+          "dashboard": {
+            "enabled": true,
+            "host": "0.0.0.0",
+            "insecure": true
+          }
         }
       ]
     }

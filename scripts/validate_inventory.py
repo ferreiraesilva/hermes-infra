@@ -79,6 +79,21 @@ def main() -> int:
                     errors.append(f"bot Telegram duplicado: {actual_bot}")
                 bot_usernames.add(actual_bot)
 
+                dashboard = profile.get("dashboard", {})
+                if dashboard:
+                    if not isinstance(dashboard, dict):
+                        errors.append(f"{client_id}/{env_id}/{profile_id}: dashboard deve ser objeto")
+                    else:
+                        enabled = dashboard.get("enabled", False)
+                        insecure = dashboard.get("insecure", False)
+                        host = dashboard.get("host", "0.0.0.0")
+                        if not isinstance(enabled, bool):
+                            errors.append(f"{client_id}/{env_id}/{profile_id}: dashboard.enabled deve ser booleano")
+                        if not isinstance(insecure, bool):
+                            errors.append(f"{client_id}/{env_id}/{profile_id}: dashboard.insecure deve ser booleano")
+                        if not isinstance(host, str) or not host:
+                            errors.append(f"{client_id}/{env_id}/{profile_id}: dashboard.host deve ser string não vazia")
+
                 # Container único por profile; bancos/roles por produto x cliente.
                 container = f"hermes-{client_id}-{profile_id}-{env_id}"
                 if ("container", container) in resources:
