@@ -111,6 +111,31 @@ O script também compara o commit declarado na imagem Docker
 relação ao GitHub, o update aborta e registra o motivo no log em vez de marcar
 sucesso com uma imagem defasada.
 
+## Ownership do home persistente
+
+O volume `/opt/data` é persistente e deve pertencer ao usuário Hermes do
+container (mesmo UID/GID do usuário do host que roda o deploy). Não execute
+comandos operacionais com `docker exec` puro, porque Docker entra como `root`
+por padrão e pode criar arquivos `root:root` no home persistente. Isso quebra
+fluxos como dashboard, WhatsApp, setup e leitura do `.env`.
+
+Use sempre o wrapper versionado:
+
+```bash
+./scripts/hermes-command.sh hml leonardo pessoal whatsapp
+./scripts/hermes-command.sh hml leonardo pessoal plugins list --plain
+```
+
+Se algum comando já tiver criado arquivos `root:root`, repare antes de reiniciar
+ou parear novamente:
+
+```bash
+./scripts/repair-instance-permissions.sh hml leonardo pessoal
+```
+
+O deploy também normaliza permissões no início de cada execução, mas isso não
+substitui o wrapper para comandos manuais executados entre deploys.
+
 ## Profile = container = bot
 
 Cada profile roda como um container Hermes stock usando seu **home default**
