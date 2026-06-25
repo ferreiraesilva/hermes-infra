@@ -77,6 +77,7 @@ field() { python3 -c "import json,sys;print(json.load(open(sys.argv[1]))[sys.arg
 CONTAINER_NAME="$(field container_name)"
 COMPOSE_PROJECT="$(field compose_project)"
 DATA_DIR="$(field data_dir)"
+FILES_DIR="$(field files_dir)"
 POSTGRES_CONTAINER="$(field postgres_container)"
 POSTGRES_HOST="$(field postgres_host)"
 POSTGRES_PORT="$(field postgres_port)"
@@ -121,6 +122,7 @@ health="$(docker inspect -f '{{.State.Health.Status}}' "$POSTGRES_CONTAINER" 2>/
 umask 077
 mkdir -p "$DATA_DIR/plugins" "$DATA_DIR/product-src" "$DATA_DIR/runtime/whatsapp-bridge"
 chmod 700 "$DATA_DIR"
+mkdir -p "$FILES_DIR"; chmod 700 "$FILES_DIR"
 
 # auth de LLM (provider openai-codex etc.): profile novo não herda; copiamos.
 if [[ -f "$AUTH_SRC" ]]; then
@@ -301,6 +303,7 @@ fi
 # --- Container do profile (1 gateway run, profile default) -------------------
 export HERMES_IMAGE
 export HERMES_CONTAINER_NAME="$CONTAINER_NAME" HERMES_DATA_DIR="$DATA_DIR"
+export HERMES_FILES_DIR="$FILES_DIR"
 export HERMES_UID="$(id -u)" HERMES_GID="$(id -g)" COMPOSE_PROJECT_NAME="$COMPOSE_PROJECT"
 if [[ "$DASHBOARD_ENABLED" == "true" ]]; then
   export HERMES_DASHBOARD=true
