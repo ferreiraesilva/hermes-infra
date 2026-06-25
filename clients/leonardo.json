@@ -15,6 +15,13 @@
             "enabled": true,
             "host": "0.0.0.0",
             "insecure": true
+          },
+          "whatsapp": {
+            "enabled": true,
+            "mode": "bot",
+            "bridge_port": 3000,
+            "bridge_script": "/opt/hermes/scripts/whatsapp-bridge/bridge.js",
+            "allowed_users_secret": "TMHA_LEO_TM_HML_WHATSAPP_ALLOWED_USERS"
           }
         }
       ]

@@ -101,6 +101,23 @@ No profile `leonardo/pessoal`, o dashboard fica exposto em `0.0.0.0` com
 `--insecure`, porque este HML roda apenas na infraestrutura doméstica. Essa regra
 não deve ser copiada automaticamente para clientes ou produção.
 
+## WhatsApp por profile
+
+Profiles podem declarar `whatsapp.enabled=true` no inventário. Quando habilitado,
+o deploy:
+
+- grava `WHATSAPP_ENABLED=true`, `WHATSAPP_MODE` e `WHATSAPP_ALLOWED_USERS` no
+  `.env` do home do container;
+- configura `whatsapp.extra.bridge_port` e `whatsapp.extra.bridge_script` no
+  `config.yaml`;
+- habilita o plugin bundled `whatsapp-platform` antes do primeiro boot do
+  gateway.
+
+O allowlist de WhatsApp é segredo operacional e deve ficar no arquivo do cliente
+em `~/.config/hermes-infra/secrets/<ambiente>/<cliente>.env`, usando a chave
+declarada em `whatsapp.allowed_users_secret`. O deploy não cria nem remove a
+sessão `whatsapp/session`; o pareamento por QR é uma etapa operacional separada.
+
 ## Convenção de nomes
 
 Bots e recursos seguem obrigatoriamente [docs/naming.md](docs/naming.md). O

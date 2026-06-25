@@ -7,6 +7,7 @@ services:
     command: ["gateway", "run"]
     volumes:
       - ${HERMES_DATA_DIR:?defina HERMES_DATA_DIR}:/opt/data
+      - ${HERMES_DATA_DIR:?defina HERMES_DATA_DIR}/runtime/whatsapp-bridge:/opt/hermes/plugins/scripts/whatsapp-bridge:ro
     environment:
       HERMES_UID: ${HERMES_UID:?defina HERMES_UID}
       HERMES_GID: ${HERMES_GID:?defina HERMES_GID}

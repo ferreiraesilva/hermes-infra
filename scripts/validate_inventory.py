@@ -94,6 +94,27 @@ def main() -> int:
                         if not isinstance(host, str) or not host:
                             errors.append(f"{client_id}/{env_id}/{profile_id}: dashboard.host deve ser string não vazia")
 
+                whatsapp = profile.get("whatsapp", {})
+                if whatsapp:
+                    if not isinstance(whatsapp, dict):
+                        errors.append(f"{client_id}/{env_id}/{profile_id}: whatsapp deve ser objeto")
+                    else:
+                        enabled = whatsapp.get("enabled", False)
+                        mode = whatsapp.get("mode", "bot")
+                        bridge_port = whatsapp.get("bridge_port", 3000)
+                        bridge_script = whatsapp.get("bridge_script", "/opt/hermes/scripts/whatsapp-bridge/bridge.js")
+                        allowed_users_secret = whatsapp.get("allowed_users_secret", "")
+                        if not isinstance(enabled, bool):
+                            errors.append(f"{client_id}/{env_id}/{profile_id}: whatsapp.enabled deve ser booleano")
+                        if mode not in {"bot", "self-chat"}:
+                            errors.append(f"{client_id}/{env_id}/{profile_id}: whatsapp.mode deve ser bot ou self-chat")
+                        if not isinstance(bridge_port, int) or not (1024 <= bridge_port <= 65535):
+                            errors.append(f"{client_id}/{env_id}/{profile_id}: whatsapp.bridge_port deve ser porta TCP válida")
+                        if not isinstance(bridge_script, str) or not bridge_script.startswith("/"):
+                            errors.append(f"{client_id}/{env_id}/{profile_id}: whatsapp.bridge_script deve ser caminho absoluto")
+                        if enabled and (not isinstance(allowed_users_secret, str) or not allowed_users_secret):
+                            errors.append(f"{client_id}/{env_id}/{profile_id}: whatsapp.allowed_users_secret é obrigatório quando habilitado")
+
                 # Container único por profile; bancos/roles por produto x cliente.
                 container = f"hermes-{client_id}-{profile_id}-{env_id}"
                 if ("container", container) in resources:

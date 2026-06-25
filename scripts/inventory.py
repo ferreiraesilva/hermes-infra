@@ -83,12 +83,17 @@ def plan(env_id: str, client_id: str, profile_id: str) -> dict:
 
     databases = [db_for(catalog[pid], client_id) for pid in profile["products"]]
     plugin_sources = [
-        {"plugin": catalog[pid]["plugin_name"], "db_slug": catalog[pid]["db_slug"]}
+        {"plugin": catalog[pid]["plugin_name"], "db_slug": catalog[pid]["db_slug"],
+         "soul": catalog[pid].get("soul", "")}
         for pid in profile["products"]
     ]
 
     return {
         "client_id": client_id,
+        "client_name": client["client"]["name"],
+        # Nome de exibição do tenant (incorporadora) usado para personalizar a SOUL
+        # e a persona. Default = nome do cliente; profile pode sobrescrever.
+        "tenant_name": profile.get("tenant_name") or client["client"]["name"],
         "profile_id": profile_id,
         "environment": env_id,
         "container_name": f"hermes-{instance}-{env_id}",
@@ -100,6 +105,7 @@ def plan(env_id: str, client_id: str, profile_id: str) -> dict:
         "telegram_bot_username": profile["telegram_bot_username"],
         "telegram_secret": profile["telegram_secret"],
         "dashboard": profile.get("dashboard", {"enabled": False}),
+        "whatsapp": profile.get("whatsapp", {"enabled": False}),
         "databases": databases,
         "plugins": [s["plugin"] for s in plugin_sources],
         "plugin_sources": plugin_sources,

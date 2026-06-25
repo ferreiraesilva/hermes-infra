@@ -81,9 +81,15 @@ POSTGRES_CONTAINER="$(field postgres_container)"
 POSTGRES_HOST="$(field postgres_host)"
 POSTGRES_PORT="$(field postgres_port)"
 TELEGRAM_SECRET="$(field telegram_secret)"
+TENANT_NAME="$(field tenant_name)"
 DASHBOARD_ENABLED="$(python3 -c "import json,sys;print(str(json.load(open(sys.argv[1])).get('dashboard',{}).get('enabled', False)).lower())" "$PLAN")"
 DASHBOARD_HOST="$(python3 -c "import json,sys;print(json.load(open(sys.argv[1])).get('dashboard',{}).get('host', '0.0.0.0'))" "$PLAN")"
 DASHBOARD_INSECURE="$(python3 -c "import json,sys;print(str(json.load(open(sys.argv[1])).get('dashboard',{}).get('insecure', False)).lower())" "$PLAN")"
+WHATSAPP_ENABLED="$(python3 -c "import json,sys;print(str(json.load(open(sys.argv[1])).get('whatsapp',{}).get('enabled', False)).lower())" "$PLAN")"
+WHATSAPP_MODE_VALUE="$(python3 -c "import json,sys;print(json.load(open(sys.argv[1])).get('whatsapp',{}).get('mode', 'bot'))" "$PLAN")"
+WHATSAPP_BRIDGE_PORT="$(python3 -c "import json,sys;print(json.load(open(sys.argv[1])).get('whatsapp',{}).get('bridge_port', 3000))" "$PLAN")"
+WHATSAPP_BRIDGE_SCRIPT="$(python3 -c "import json,sys;print(json.load(open(sys.argv[1])).get('whatsapp',{}).get('bridge_script', '/opt/hermes/scripts/whatsapp-bridge/bridge.js'))" "$PLAN")"
+WHATSAPP_ALLOWED_USERS_SECRET="$(python3 -c "import json,sys;print(json.load(open(sys.argv[1])).get('whatsapp',{}).get('allowed_users_secret', ''))" "$PLAN")"
 
 # PRD nunca roda SQL sem aprovação explícita (até o GitOps do prompt-2 existir).
 if [[ "$ENVIRONMENT" == "prd" && "${HERMES_INFRA_CONFIRM_PRD:-}" != "1" ]]; then
@@ -102,18 +108,28 @@ set -a; source "$COMMON_ENV"; source "$CLIENT_ENV"; set +a
 
 token="${!TELEGRAM_SECRET:-}"
 [[ -n "$token" ]] || { echo "token ausente: defina $TELEGRAM_SECRET em $CLIENT_ENV" >&2; exit 1; }
+if [[ "$WHATSAPP_ENABLED" == "true" ]]; then
+  [[ -n "$WHATSAPP_ALLOWED_USERS_SECRET" ]] || { echo "whatsapp habilitado exige allowed_users_secret no inventário" >&2; exit 1; }
+  whatsapp_allowed_users="${!WHATSAPP_ALLOWED_USERS_SECRET:-}"
+  [[ -n "$whatsapp_allowed_users" ]] || { echo "allowlist WhatsApp ausente: defina $WHATSAPP_ALLOWED_USERS_SECRET em $CLIENT_ENV" >&2; exit 1; }
+fi
 
 # --- Postgres saudável -------------------------------------------------------
 health="$(docker inspect -f '{{.State.Health.Status}}' "$POSTGRES_CONTAINER" 2>/dev/null || true)"
 [[ "$health" == "healthy" ]] || { echo "$POSTGRES_CONTAINER não está saudável; nada será criado" >&2; exit 1; }
 
 umask 077
-mkdir -p "$DATA_DIR/plugins" "$DATA_DIR/product-src"
+mkdir -p "$DATA_DIR/plugins" "$DATA_DIR/product-src" "$DATA_DIR/runtime/whatsapp-bridge"
 chmod 700 "$DATA_DIR"
 
 # auth de LLM (provider openai-codex etc.): profile novo não herda; copiamos.
 if [[ -f "$AUTH_SRC" ]]; then
-  cp "$AUTH_SRC" "$DATA_DIR/auth.json"; chmod 600 "$DATA_DIR/auth.json"
+  docker run --rm \
+    --entrypoint sh \
+    -v "$DATA_DIR:/opt/data" \
+    -v "$AUTH_SRC:/tmp/hermes-auth.json:ro" \
+    "$HERMES_IMAGE" \
+    -c "cp /tmp/hermes-auth.json /opt/data/auth.json && chown $(id -u):$(id -g) /opt/data/auth.json && chmod 600 /opt/data/auth.json"
 else
   echo "aviso: $AUTH_SRC ausente; o container precisará de auth de LLM (rode 'hermes setup' ou copie auth.json)" >&2
 fi
@@ -159,9 +175,10 @@ SQL
 
   database_url="postgresql://$role:$password@$POSTGRES_HOST:$POSTGRES_PORT/$database"
 
-  # .env do produto (lido pelo plugin): DATABASE_URL + env declarada no catálogo.
+  # .env do produto (lido pelo plugin): DATABASE_URL + nome do tenant + env do catálogo.
   {
     printf 'DATABASE_URL=%s\n' "$database_url"
+    printf 'HERMES_TENANT_NAME=%s\n' "$TENANT_NAME"
     python3 - "$PLAN" "$db_slug" <<'PY'
 import json, sys
 plan = json.load(open(sys.argv[1]))
@@ -189,11 +206,54 @@ PY
   ln -sfn "/opt/data/product-src/$db_slug" "$DATA_DIR/plugins/$plugin"
 done < <(db_rows)
 
+# --- SOUL do home (identidade nativa do agente), gerada a partir do template -----
+# Um produto pode declarar "soul" no catálogo (caminho relativo ao repo). O deploy
+# renderiza {{INCORPORADORA}} com o nome do tenant e grava em /opt/data/SOUL.md.
+# Substitui a edição manual no host (antes frágil e fora do versionamento).
+mapfile -t soul_entries < <(python3 - "$PLAN" <<'PY'
+import json, sys
+plan = json.load(open(sys.argv[1]))
+for s in plan["plugin_sources"]:
+    if s.get("soul"):
+        print("\t".join([s["db_slug"], s["soul"]]))
+PY
+)
+if ((${#soul_entries[@]} > 1)); then
+  echo "aviso: mais de um produto declara soul neste profile; SOUL não gerado (defina soul_product no inventário)" >&2
+elif ((${#soul_entries[@]} == 1)); then
+  IFS=$'\t' read -r soul_slug soul_rel <<< "${soul_entries[0]}"
+  soul_src="$DATA_DIR/product-src/$soul_slug/$soul_rel"
+  soul_dst="$DATA_DIR/SOUL.md"
+  if [[ -f "$soul_src" ]]; then
+    # Backup único de um SOUL pré-existente não gerenciado (ex.: editado à mão).
+    if [[ -f "$soul_dst" && ! -f "$soul_dst.pre-managed.bak" ]]; then
+      cp -p "$soul_dst" "$soul_dst.pre-managed.bak"
+      echo "SOUL pré-existente preservado em $soul_dst.pre-managed.bak" >&2
+    fi
+    TENANT_NAME="$TENANT_NAME" python3 - "$soul_src" "$soul_dst" <<'PY'
+import os, sys
+src, dst = sys.argv[1], sys.argv[2]
+name = os.environ.get("TENANT_NAME") or "incorporadora"
+txt = open(src, encoding="utf-8").read().replace("{{INCORPORADORA}}", name)
+open(dst, "w", encoding="utf-8").write(txt)
+PY
+    chmod 644 "$soul_dst"
+    echo "SOUL gerado para '$TENANT_NAME' a partir de $soul_slug/$soul_rel"
+  else
+    echo "aviso: soul declarado mas template ausente: $soul_src" >&2
+  fi
+fi
+
 # --- .env do container (home default): credenciais LLM + token do bot --------
 {
   cat "$COMMON_ENV"
   printf 'TELEGRAM_BOT_TOKEN=%s\n' "$token"
   [[ -n "${TELEGRAM_ALLOWED_USERS:-}" ]] && printf 'TELEGRAM_ALLOWED_USERS=%s\n' "$TELEGRAM_ALLOWED_USERS"
+  if [[ "$WHATSAPP_ENABLED" == "true" ]]; then
+    printf 'WHATSAPP_ENABLED=true\n'
+    printf 'WHATSAPP_MODE=%s\n' "$WHATSAPP_MODE_VALUE"
+    printf 'WHATSAPP_ALLOWED_USERS=%s\n' "$whatsapp_allowed_users"
+  fi
 } > "$DATA_DIR/.env"
 chmod 600 "$DATA_DIR/.env"
 
@@ -219,11 +279,24 @@ fi
 if [[ -n "${HERMES_INFERENCE_BASE_URL:-}" ]]; then
   hermes_one_shot config set model.base_url "$HERMES_INFERENCE_BASE_URL"
 fi
+if [[ "$WHATSAPP_ENABLED" == "true" ]]; then
+  docker run --rm \
+    --user "$(id -u):$(id -g)" \
+    --entrypoint sh \
+    -v "$DATA_DIR/runtime:/runtime" \
+    "$HERMES_IMAGE" \
+    -c 'rm -rf /runtime/whatsapp-bridge && mkdir -p /runtime/whatsapp-bridge && cp -a /opt/hermes/scripts/whatsapp-bridge/. /runtime/whatsapp-bridge/'
+  hermes_one_shot config set whatsapp.extra.bridge_port "$WHATSAPP_BRIDGE_PORT"
+  hermes_one_shot config set whatsapp.extra.bridge_script "$WHATSAPP_BRIDGE_SCRIPT"
+fi
 
 while IFS= read -r plugin; do
   [[ -n "$plugin" ]] || continue
   hermes_one_shot plugins enable "$plugin" || true
 done < <(python3 -c "import json,sys;print('\n'.join(json.load(open(sys.argv[1]))['plugins']))" "$PLAN")
+if [[ "$WHATSAPP_ENABLED" == "true" ]]; then
+  hermes_one_shot plugins enable whatsapp-platform || true
+fi
 
 # --- Container do profile (1 gateway run, profile default) -------------------
 export HERMES_IMAGE
