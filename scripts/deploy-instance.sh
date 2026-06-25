@@ -50,7 +50,8 @@ fi
 
 # Caminho do binário hermes DENTRO do container (não está no PATH).
 HERMES_BIN="${HERMES_BIN:-/opt/hermes/.venv/bin/hermes}"
-HERMES_IMAGE="${HERMES_IMAGE:-nousresearch/hermes-agent@sha256:4b50f1201f280e28887f6a2d7bbcd50fe370e0da3e92417d6e51778b485cf18e}"
+HERMES_IMAGE_DEFAULT="nousresearch/hermes-agent@sha256:4b50f1201f280e28887f6a2d7bbcd50fe370e0da3e92417d6e51778b485cf18e"
+HERMES_IMAGE="${HERMES_IMAGE:-$HERMES_IMAGE_DEFAULT}"
 
 python3 "$ROOT/scripts/validate_inventory.py"
 
@@ -77,6 +78,7 @@ field() { python3 -c "import json,sys;print(json.load(open(sys.argv[1]))[sys.arg
 CONTAINER_NAME="$(field container_name)"
 COMPOSE_PROJECT="$(field compose_project)"
 DATA_DIR="$(field data_dir)"
+RUNTIME_ROOT="$(field runtime_root)"
 FILES_DIR="$(field files_dir)"
 POSTGRES_CONTAINER="$(field postgres_container)"
 POSTGRES_HOST="$(field postgres_host)"
@@ -86,11 +88,21 @@ TENANT_NAME="$(field tenant_name)"
 DASHBOARD_ENABLED="$(python3 -c "import json,sys;print(str(json.load(open(sys.argv[1])).get('dashboard',{}).get('enabled', False)).lower())" "$PLAN")"
 DASHBOARD_HOST="$(python3 -c "import json,sys;print(json.load(open(sys.argv[1])).get('dashboard',{}).get('host', '0.0.0.0'))" "$PLAN")"
 DASHBOARD_INSECURE="$(python3 -c "import json,sys;print(str(json.load(open(sys.argv[1])).get('dashboard',{}).get('insecure', False)).lower())" "$PLAN")"
+DASHBOARD_BASIC_AUTH_USERNAME="$(python3 -c "import json,sys;print(json.load(open(sys.argv[1])).get('dashboard',{}).get('basic_auth_username', ''))" "$PLAN")"
+DASHBOARD_BASIC_AUTH_PASSWORD_SECRET="$(python3 -c "import json,sys;print(json.load(open(sys.argv[1])).get('dashboard',{}).get('basic_auth_password_secret', ''))" "$PLAN")"
 WHATSAPP_ENABLED="$(python3 -c "import json,sys;print(str(json.load(open(sys.argv[1])).get('whatsapp',{}).get('enabled', False)).lower())" "$PLAN")"
 WHATSAPP_MODE_VALUE="$(python3 -c "import json,sys;print(json.load(open(sys.argv[1])).get('whatsapp',{}).get('mode', 'bot'))" "$PLAN")"
 WHATSAPP_BRIDGE_PORT="$(python3 -c "import json,sys;print(json.load(open(sys.argv[1])).get('whatsapp',{}).get('bridge_port', 3000))" "$PLAN")"
 WHATSAPP_BRIDGE_SCRIPT="$(python3 -c "import json,sys;print(json.load(open(sys.argv[1])).get('whatsapp',{}).get('bridge_script', '/opt/hermes/scripts/whatsapp-bridge/bridge.js'))" "$PLAN")"
+WHATSAPP_SESSION_PATH="$(python3 -c "import json,sys;print(json.load(open(sys.argv[1])).get('whatsapp',{}).get('session_path', '/opt/data/whatsapp/session'))" "$PLAN")"
 WHATSAPP_ALLOWED_USERS_SECRET="$(python3 -c "import json,sys;print(json.load(open(sys.argv[1])).get('whatsapp',{}).get('allowed_users_secret', ''))" "$PLAN")"
+
+mkdir -p "$RUNTIME_ROOT"
+IMAGE_ENV="$RUNTIME_ROOT/hermes-image.env"
+if [[ -f "$IMAGE_ENV" ]]; then
+  set -a; source "$IMAGE_ENV"; set +a
+  HERMES_IMAGE="${HERMES_IMAGE:-$HERMES_IMAGE_DEFAULT}"
+fi
 
 # PRD nunca roda SQL sem aprovação explícita (até o GitOps do prompt-2 existir).
 if [[ "$ENVIRONMENT" == "prd" && "${HERMES_INFRA_CONFIRM_PRD:-}" != "1" ]]; then
@@ -109,6 +121,11 @@ set -a; source "$COMMON_ENV"; source "$CLIENT_ENV"; set +a
 
 token="${!TELEGRAM_SECRET:-}"
 [[ -n "$token" ]] || { echo "token ausente: defina $TELEGRAM_SECRET em $CLIENT_ENV" >&2; exit 1; }
+if [[ "$DASHBOARD_ENABLED" == "true" && -n "$DASHBOARD_BASIC_AUTH_PASSWORD_SECRET" ]]; then
+  dashboard_basic_auth_password="${!DASHBOARD_BASIC_AUTH_PASSWORD_SECRET:-}"
+  [[ -n "$DASHBOARD_BASIC_AUTH_USERNAME" ]] || { echo "dashboard basic auth exige basic_auth_username no inventário" >&2; exit 1; }
+  [[ -n "$dashboard_basic_auth_password" ]] || { echo "senha do dashboard ausente: defina $DASHBOARD_BASIC_AUTH_PASSWORD_SECRET em $CLIENT_ENV" >&2; exit 1; }
+fi
 if [[ "$WHATSAPP_ENABLED" == "true" ]]; then
   [[ -n "$WHATSAPP_ALLOWED_USERS_SECRET" ]] || { echo "whatsapp habilitado exige allowed_users_secret no inventário" >&2; exit 1; }
   whatsapp_allowed_users="${!WHATSAPP_ALLOWED_USERS_SECRET:-}"
@@ -123,6 +140,14 @@ umask 077
 mkdir -p "$DATA_DIR/plugins" "$DATA_DIR/product-src" "$DATA_DIR/runtime/whatsapp-bridge"
 chmod 700 "$DATA_DIR"
 mkdir -p "$FILES_DIR"; chmod 700 "$FILES_DIR"
+
+# Garante que upgrades de imagem e execuções anteriores como root não deixem o
+# home do Hermes travado para os one-shots que rodam como o usuário do host.
+docker run --rm \
+  --entrypoint sh \
+  -v "$DATA_DIR:/opt/data" \
+  "$HERMES_IMAGE" \
+  -c "chown -R $(id -u):$(id -g) /opt/data && chmod -R u+rwX /opt/data"
 
 # auth de LLM (provider openai-codex etc.): profile novo não herda; copiamos.
 if [[ -f "$AUTH_SRC" ]]; then
@@ -283,13 +308,13 @@ if [[ -n "${HERMES_INFERENCE_BASE_URL:-}" ]]; then
 fi
 if [[ "$WHATSAPP_ENABLED" == "true" ]]; then
   docker run --rm \
-    --user "$(id -u):$(id -g)" \
     --entrypoint sh \
     -v "$DATA_DIR/runtime:/runtime" \
     "$HERMES_IMAGE" \
-    -c 'rm -rf /runtime/whatsapp-bridge && mkdir -p /runtime/whatsapp-bridge && cp -a /opt/hermes/scripts/whatsapp-bridge/. /runtime/whatsapp-bridge/'
+    -c "rm -rf /runtime/whatsapp-bridge && mkdir -p /runtime/whatsapp-bridge && cp -a /opt/hermes/scripts/whatsapp-bridge/. /runtime/whatsapp-bridge/ && chown -R $(id -u):$(id -g) /runtime/whatsapp-bridge"
   hermes_one_shot config set whatsapp.extra.bridge_port "$WHATSAPP_BRIDGE_PORT"
   hermes_one_shot config set whatsapp.extra.bridge_script "$WHATSAPP_BRIDGE_SCRIPT"
+  hermes_one_shot config set whatsapp.extra.session_path "$WHATSAPP_SESSION_PATH"
 fi
 
 while IFS= read -r plugin; do
@@ -309,8 +334,15 @@ if [[ "$DASHBOARD_ENABLED" == "true" ]]; then
   export HERMES_DASHBOARD=true
   export HERMES_DASHBOARD_HOST="$DASHBOARD_HOST"
   export HERMES_DASHBOARD_INSECURE="$DASHBOARD_INSECURE"
+  if [[ -n "$DASHBOARD_BASIC_AUTH_PASSWORD_SECRET" ]]; then
+    export HERMES_DASHBOARD_BASIC_AUTH_USERNAME="$DASHBOARD_BASIC_AUTH_USERNAME"
+    export HERMES_DASHBOARD_BASIC_AUTH_PASSWORD="$dashboard_basic_auth_password"
+  else
+    unset HERMES_DASHBOARD_BASIC_AUTH_USERNAME HERMES_DASHBOARD_BASIC_AUTH_PASSWORD
+  fi
 else
   unset HERMES_DASHBOARD HERMES_DASHBOARD_HOST HERMES_DASHBOARD_INSECURE
+  unset HERMES_DASHBOARD_BASIC_AUTH_USERNAME HERMES_DASHBOARD_BASIC_AUTH_PASSWORD
 fi
 docker compose -f "$ROOT/platform/hermes/compose.yml" up -d
 sleep 8

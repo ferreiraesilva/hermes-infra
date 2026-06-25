@@ -76,6 +76,41 @@ profiles do cliente — cada um vira **seu próprio container**. Exige `postgres
 saudável; se ele não existir, falha sem criar outro. `prd` exige
 `HERMES_INFRA_CONFIRM_PRD=1` antes de qualquer SQL.
 
+## Atualização automática da imagem Hermes
+
+O deploy usa uma imagem Hermes pinada por digest para manter reprodutibilidade.
+Para não ficar desatualizado, o host pode instalar um timer diário que consulta
+`nousresearch/hermes-agent:latest`, resolve o digest publicado, grava o override
+em `runtime_root/hermes-image.env` e redeploya o profile usando o mesmo
+`deploy-instance.sh`.
+
+No HML pessoal:
+
+```bash
+./scripts/update-hermes-image.sh hml leonardo pessoal
+./scripts/install-hermes-update-timer.sh hml leonardo pessoal 04:00
+```
+
+O update é protegido por lock, escreve log em
+`~/.local/share/hermes-infra/runtime/<ambiente>/hermes-update.log`, preserva o
+home do container (`/opt/data`) e faz rollback para a imagem anterior se o deploy
+ou o smoke test falhar. Para usar outra fonte de imagem, defina
+`HERMES_IMAGE_REPOSITORY` e/ou `HERMES_IMAGE_TAG` no ambiente da execução.
+
+Nota: o comando nativo `hermes update` não atualiza instalações Docker. Dentro
+do container ele informa que o Hermes está rodando como imagem publicada e que a
+atualização correta é puxar uma imagem nova e recriar/reiniciar o container. O
+cron interno do Hermes é útil para tarefas do agente, mas não deve controlar o
+upgrade do próprio container, porque isso exigiria dar acesso ao Docker do host
+para dentro do container e ainda dependeria do gateway estar saudável.
+
+O script também compara o commit declarado na imagem Docker
+(`org.opencontainers.image.revision`) com `refs/heads/main` de
+`https://github.com/NousResearch/Hermes-Agent.git`. O timer do HML roda com
+`HERMES_IMAGE_REQUIRE_UPSTREAM_MAIN=1`; se o Docker Hub estiver atrasado em
+relação ao GitHub, o update aborta e registra o motivo no log em vez de marcar
+sucesso com uma imagem defasada.
+
 ## Profile = container = bot
 
 Cada profile roda como um container Hermes stock usando seu **home default**
@@ -100,6 +135,11 @@ criar outro container ou outro gateway.
 No profile `leonardo/pessoal`, o dashboard fica exposto em `0.0.0.0` com
 `--insecure`, porque este HML roda apenas na infraestrutura doméstica. Essa regra
 não deve ser copiada automaticamente para clientes ou produção.
+
+Nota operacional: imagens Hermes atuais recusam dashboard non-loopback sem
+provedor de autenticação, mesmo quando `HERMES_DASHBOARD_INSECURE` está definido.
+Por isso, o HML pessoal usa basic auth simples via secret declarada em
+`dashboard.basic_auth_password_secret`.
 
 ## WhatsApp por profile
 

@@ -14,13 +14,16 @@
           "dashboard": {
             "enabled": true,
             "host": "0.0.0.0",
-            "insecure": true
+            "insecure": true,
+            "basic_auth_username": "leonardo",
+            "basic_auth_password_secret": "TMHA_LEO_TM_HML_DASHBOARD_PASSWORD"
           },
           "whatsapp": {
             "enabled": true,
             "mode": "bot",
             "bridge_port": 3000,
             "bridge_script": "/opt/hermes/scripts/whatsapp-bridge/bridge.js",
+            "session_path": "/opt/data/whatsapp/session",
             "allowed_users_secret": "TMHA_LEO_TM_HML_WHATSAPP_ALLOWED_USERS"
           }
         }

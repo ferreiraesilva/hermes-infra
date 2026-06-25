@@ -87,12 +87,18 @@ def main() -> int:
                         enabled = dashboard.get("enabled", False)
                         insecure = dashboard.get("insecure", False)
                         host = dashboard.get("host", "0.0.0.0")
+                        basic_auth_username = dashboard.get("basic_auth_username", "")
+                        basic_auth_password_secret = dashboard.get("basic_auth_password_secret", "")
                         if not isinstance(enabled, bool):
                             errors.append(f"{client_id}/{env_id}/{profile_id}: dashboard.enabled deve ser booleano")
                         if not isinstance(insecure, bool):
                             errors.append(f"{client_id}/{env_id}/{profile_id}: dashboard.insecure deve ser booleano")
                         if not isinstance(host, str) or not host:
                             errors.append(f"{client_id}/{env_id}/{profile_id}: dashboard.host deve ser string não vazia")
+                        if basic_auth_username and not isinstance(basic_auth_username, str):
+                            errors.append(f"{client_id}/{env_id}/{profile_id}: dashboard.basic_auth_username deve ser string")
+                        if basic_auth_password_secret and not isinstance(basic_auth_password_secret, str):
+                            errors.append(f"{client_id}/{env_id}/{profile_id}: dashboard.basic_auth_password_secret deve ser string")
 
                 whatsapp = profile.get("whatsapp", {})
                 if whatsapp:
@@ -103,6 +109,7 @@ def main() -> int:
                         mode = whatsapp.get("mode", "bot")
                         bridge_port = whatsapp.get("bridge_port", 3000)
                         bridge_script = whatsapp.get("bridge_script", "/opt/hermes/scripts/whatsapp-bridge/bridge.js")
+                        session_path = whatsapp.get("session_path", "/opt/data/whatsapp/session")
                         allowed_users_secret = whatsapp.get("allowed_users_secret", "")
                         if not isinstance(enabled, bool):
                             errors.append(f"{client_id}/{env_id}/{profile_id}: whatsapp.enabled deve ser booleano")
@@ -112,6 +119,8 @@ def main() -> int:
                             errors.append(f"{client_id}/{env_id}/{profile_id}: whatsapp.bridge_port deve ser porta TCP válida")
                         if not isinstance(bridge_script, str) or not bridge_script.startswith("/"):
                             errors.append(f"{client_id}/{env_id}/{profile_id}: whatsapp.bridge_script deve ser caminho absoluto")
+                        if not isinstance(session_path, str) or not session_path.startswith("/"):
+                            errors.append(f"{client_id}/{env_id}/{profile_id}: whatsapp.session_path deve ser caminho absoluto")
                         if enabled and (not isinstance(allowed_users_secret, str) or not allowed_users_secret):
                             errors.append(f"{client_id}/{env_id}/{profile_id}: whatsapp.allowed_users_secret é obrigatório quando habilitado")
 
