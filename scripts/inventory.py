@@ -99,6 +99,7 @@ def plan(env_id: str, client_id: str, profile_id: str) -> dict:
         "container_name": f"hermes-{instance}-{env_id}",
         "compose_project": f"hermes-{instance}-{env_id}",
         "data_dir": f"{env['data_root']}/{instance}",
+        "files_dir": env["files_root"],
         "postgres_container": env["postgres_container"],
         "postgres_host": env["postgres_host"],
         "postgres_port": env["postgres_port"],
