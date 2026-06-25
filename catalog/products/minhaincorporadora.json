@@ -8,14 +8,12 @@
   "ref_hml": "feature/minhaincorp-v1",
   "plugin_name": "minhaincorp",
   "migrations": "migrations",
-  "seed_hml": "seeds/0001_ficticio.sql",
   "soul": "SOUL.md",
   "env": {
     "TZ": "America/Sao_Paulo",
     "HERMES_SEND_CMD": "hermes send",
     "MINHAINCORP_SCHEMA": "minhaincorp",
     "MINHAINCORP_MODE": "telegram_test",
-    "MINHAINCORP_TENANT": "modelo",
     "MINHAINCORP_TG_TEST_PHONE": "5562993119454"
   }
 }
