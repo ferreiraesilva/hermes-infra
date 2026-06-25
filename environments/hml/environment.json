@@ -7,5 +7,6 @@
   "postgres_host": "127.0.0.1",
   "postgres_port": 5432,
   "data_root": "/home/leonardo/.hermes-instances/hml",
-  "runtime_root": "/home/leonardo/.local/share/hermes-infra/runtime/hml"
+  "runtime_root": "/home/leonardo/.local/share/hermes-infra/runtime/hml",
+  "files_root": "/home/leonardo/projects"
 }
