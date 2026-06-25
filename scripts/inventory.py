@@ -108,6 +108,7 @@ def plan(env_id: str, client_id: str, profile_id: str) -> dict:
         "telegram_secret": profile["telegram_secret"],
         "dashboard": profile.get("dashboard", {"enabled": False}),
         "whatsapp": profile.get("whatsapp", {"enabled": False}),
+        "display": profile.get("display", {}),
         "databases": databases,
         "plugins": [s["plugin"] for s in plugin_sources],
         "plugin_sources": plugin_sources,

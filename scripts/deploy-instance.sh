@@ -294,6 +294,21 @@ hermes_one_shot() {
     "$HERMES_IMAGE" "$@"
 }
 
+display_rows() {
+  python3 - "$PLAN" <<'PY'
+import json, sys
+plan = json.load(open(sys.argv[1]))
+display = plan.get("display") or {}
+platforms = display.get("platforms") or {}
+for platform, settings in platforms.items():
+    if not isinstance(settings, dict):
+        continue
+    tool_progress = settings.get("tool_progress")
+    if tool_progress is not None:
+        print(f"display.platforms.{platform}.tool_progress\t{tool_progress}")
+PY
+}
+
 # Prepara config.yaml antes do primeiro boot do gateway. Assim o container real
 # já sobe com provider/modelo/plugins corretos, sem precisar emitir warnings de
 # configuração no boot inicial e corrigir depois com restart.
@@ -306,6 +321,10 @@ fi
 if [[ -n "${HERMES_INFERENCE_BASE_URL:-}" ]]; then
   hermes_one_shot config set model.base_url "$HERMES_INFERENCE_BASE_URL"
 fi
+while IFS=$'\t' read -r config_path config_value; do
+  [[ -n "$config_path" ]] || continue
+  hermes_one_shot config set "$config_path" "$config_value"
+done < <(display_rows)
 if [[ "$WHATSAPP_ENABLED" == "true" ]]; then
   docker run --rm \
     --entrypoint sh \

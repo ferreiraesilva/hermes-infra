@@ -25,6 +25,13 @@
             "bridge_script": "/opt/hermes/scripts/whatsapp-bridge/bridge.js",
             "session_path": "/opt/data/whatsapp/session",
             "allowed_users_secret": "TMHA_LEO_TM_HML_WHATSAPP_ALLOWED_USERS"
+          },
+          "display": {
+            "platforms": {
+              "whatsapp": {
+                "tool_progress": "off"
+              }
+            }
           }
         }
       ]

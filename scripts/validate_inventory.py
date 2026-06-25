@@ -124,6 +124,29 @@ def main() -> int:
                         if enabled and (not isinstance(allowed_users_secret, str) or not allowed_users_secret):
                             errors.append(f"{client_id}/{env_id}/{profile_id}: whatsapp.allowed_users_secret é obrigatório quando habilitado")
 
+                display = profile.get("display", {})
+                if display:
+                    if not isinstance(display, dict):
+                        errors.append(f"{client_id}/{env_id}/{profile_id}: display deve ser objeto")
+                    else:
+                        platforms = display.get("platforms", {})
+                        if platforms and not isinstance(platforms, dict):
+                            errors.append(f"{client_id}/{env_id}/{profile_id}: display.platforms deve ser objeto")
+                        elif isinstance(platforms, dict):
+                            for platform_id, platform_display in platforms.items():
+                                if not ID_RE.fullmatch(platform_id):
+                                    errors.append(f"{client_id}/{env_id}/{profile_id}: display.platforms tem plataforma invalida: {platform_id!r}")
+                                    continue
+                                if not isinstance(platform_display, dict):
+                                    errors.append(f"{client_id}/{env_id}/{profile_id}: display.platforms.{platform_id} deve ser objeto")
+                                    continue
+                                unknown = set(platform_display) - {"tool_progress"}
+                                if unknown:
+                                    errors.append(f"{client_id}/{env_id}/{profile_id}: display.platforms.{platform_id} tem chaves nao suportadas: {sorted(unknown)}")
+                                tool_progress = platform_display.get("tool_progress")
+                                if tool_progress is not None and tool_progress not in {"off", "new", "all", "verbose"}:
+                                    errors.append(f"{client_id}/{env_id}/{profile_id}: display.platforms.{platform_id}.tool_progress deve ser off, new, all ou verbose")
+
                 # Container único por profile; bancos/roles por produto x cliente.
                 container = f"hermes-{client_id}-{profile_id}-{env_id}"
                 if ("container", container) in resources:

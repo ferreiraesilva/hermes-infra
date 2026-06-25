@@ -183,6 +183,30 @@ em `~/.config/hermes-infra/secrets/<ambiente>/<cliente>.env`, usando a chave
 declarada em `whatsapp.allowed_users_secret`. O deploy não cria nem remove a
 sessão `whatsapp/session`; o pareamento por QR é uma etapa operacional separada.
 
+## Display por plataforma
+
+Profiles podem declarar overrides de display em `display.platforms`. O deploy
+aplica esses valores com `hermes config set` no home gerenciado do container
+antes do gateway subir.
+
+Hoje o inventário suporta `display.platforms.<plataforma>.tool_progress` com os
+valores `off`, `new`, `all` ou `verbose`. Use isso para controlar mensagens
+intermediárias do gateway, como chamadas de ferramenta (`session_search`,
+`terminal`, plugins etc.), sem alterar o diretório de trabalho/home escolhido
+em runtime pelo comando `/sethome`.
+
+Exemplo usado no HML pessoal do Leonardo:
+
+```json
+"display": {
+  "platforms": {
+    "whatsapp": {
+      "tool_progress": "off"
+    }
+  }
+}
+```
+
 ## Convenção de nomes
 
 Bots e recursos seguem obrigatoriamente [docs/naming.md](docs/naming.md). O
