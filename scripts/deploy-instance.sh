@@ -331,6 +331,14 @@ if [[ "$WHATSAPP_ENABLED" == "true" ]]; then
     -v "$DATA_DIR/runtime:/runtime" \
     "$HERMES_IMAGE" \
     -c "rm -rf /runtime/whatsapp-bridge && mkdir -p /runtime/whatsapp-bridge && cp -a /opt/hermes/scripts/whatsapp-bridge/. /runtime/whatsapp-bridge/ && chown -R $(id -u):$(id -g) /runtime/whatsapp-bridge"
+
+  chmod -R u+w "$DATA_DIR/runtime/whatsapp-bridge"
+
+  if [[ -f "$DATA_DIR/product-src/taskme/ci/patch_hermes_bridge.py" ]]; then
+    echo "Aplicando patch do whatsapp-bridge do TaskMe..."
+    python3 "$DATA_DIR/product-src/taskme/ci/patch_hermes_bridge.py" --bridge "$DATA_DIR/runtime/whatsapp-bridge/bridge.js" --no-restart
+  fi
+
   hermes_one_shot config set whatsapp.extra.bridge_port "$WHATSAPP_BRIDGE_PORT"
   hermes_one_shot config set whatsapp.extra.bridge_script "$WHATSAPP_BRIDGE_SCRIPT"
   hermes_one_shot config set whatsapp.extra.session_path "$WHATSAPP_SESSION_PATH"
