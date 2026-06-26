@@ -7,6 +7,8 @@ services:
     command: ["gateway", "run"]
     volumes:
       - ${HERMES_DATA_DIR:?defina HERMES_DATA_DIR}:/opt/data
+      - ${HERMES_DATA_DIR:?defina HERMES_DATA_DIR}/runtime/whatsapp-bridge:/opt/hermes/plugins/scripts/whatsapp-bridge:ro
+      - ${HERMES_DATA_DIR:?defina HERMES_DATA_DIR}/runtime/telegram-platform/adapter.py:/opt/hermes/plugins/platforms/telegram/adapter.py:ro
       - ${HERMES_FILES_DIR:?defina HERMES_FILES_DIR}:/opt/data/files
     environment:
       HERMES_UID: ${HERMES_UID:?defina HERMES_UID}

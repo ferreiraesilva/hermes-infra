@@ -362,6 +362,21 @@ if [[ "$WHATSAPP_ENABLED" == "true" ]]; then
   hermes_one_shot config set whatsapp.extra.group_policy "$WHATSAPP_GROUP_POLICY"
 fi
 
+# --- Telegram Platform Adapter (Copia da imagem e aplica patch se necessário) ---
+docker run --rm \
+  --entrypoint sh \
+  -v "$DATA_DIR/runtime:/runtime" \
+  "$HERMES_IMAGE" \
+  -c "rm -rf /runtime/telegram-platform && mkdir -p /runtime/telegram-platform && cp -a /opt/hermes/plugins/platforms/telegram/. /runtime/telegram-platform/ && chown -R $(id -u):$(id -g) /runtime/telegram-platform"
+
+chmod -R u+w "$DATA_DIR/runtime/telegram-platform"
+
+if [[ -f "$DATA_DIR/product-src/taskme/ci/patch_telegram_adapter.py" ]]; then
+  echo "Aplicando patch do Telegram adapter do TaskMe..."
+  python3 "$DATA_DIR/product-src/taskme/ci/patch_telegram_adapter.py" --adapter "$DATA_DIR/runtime/telegram-platform/adapter.py"
+fi
+
+
 while IFS= read -r plugin; do
   [[ -n "$plugin" ]] || continue
   hermes_one_shot plugins enable "$plugin" || true
