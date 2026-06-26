@@ -283,6 +283,8 @@ fi
     printf 'WHATSAPP_MODE=%s\n' "$WHATSAPP_MODE_VALUE"
     if [[ "$WHATSAPP_DM_POLICY" == "allowlist" ]]; then
       printf 'WHATSAPP_ALLOWED_USERS=%s\n' "$whatsapp_allowed_users"
+    elif [[ "$WHATSAPP_DM_POLICY" == "open" ]]; then
+      printf 'WHATSAPP_ALLOWED_USERS=*\n'
     fi
   fi
 } > "$DATA_DIR/.env"
