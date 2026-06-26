@@ -22,7 +22,7 @@
             "enabled": true,
             "mode": "bot",
             "bridge_port": 3000,
-            "bridge_script": "/opt/hermes/plugins/scripts/whatsapp-bridge/bridge.js",
+            "bridge_script": "/opt/data/runtime/whatsapp-bridge/bridge.js",
             "session_path": "/opt/data/whatsapp/session",
             "allowed_users_secret": "TMHA_LEO_TM_HML_WHATSAPP_ALLOWED_USERS"
           },

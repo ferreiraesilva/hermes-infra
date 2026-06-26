@@ -126,7 +126,7 @@ def main() -> int:
                         enabled = whatsapp.get("enabled", False)
                         mode = whatsapp.get("mode", "bot")
                         bridge_port = whatsapp.get("bridge_port", 3000)
-                        bridge_script = whatsapp.get("bridge_script", "/opt/hermes/scripts/whatsapp-bridge/bridge.js")
+                        bridge_script = whatsapp.get("bridge_script", "/opt/data/runtime/whatsapp-bridge/bridge.js")
                         session_path = whatsapp.get("session_path", "/opt/data/whatsapp/session")
                         allowed_users_secret = whatsapp.get("allowed_users_secret", "")
                         account_phone = whatsapp.get("account_phone", "")

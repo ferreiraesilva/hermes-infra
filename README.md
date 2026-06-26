@@ -177,6 +177,10 @@ o deploy:
   `platforms.whatsapp.extra.bridge_script` e
   `platforms.whatsapp.extra.session_path` no `config.yaml` — este é o caminho
   consumido pelo `PlatformConfig.extra` do adapter;
+- usa `/opt/data/runtime/whatsapp-bridge/bridge.js` como script do bridge. O
+  deploy copia o bridge da imagem para esse caminho persistente e gravável antes
+  do gateway subir; não aponte profiles para `/opt/hermes/...`, que pertence à
+  imagem do container;
 - habilita o plugin bundled `whatsapp-platform` antes do primeiro boot do
   gateway.
 
