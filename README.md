@@ -193,6 +193,10 @@ uma decisão explícita para grupos.
 número deve ser pareado naquele profile, mas o vínculo real acontece no QR code
 gerado por `hermes whatsapp` dentro do container.
 
+Como os containers Hermes rodam com `network_mode: host`, `whatsapp.bridge_port`
+precisa ser exclusivo por profile ativo na mesma máquina. Reutilizar a mesma porta
+faz um gateway falar com o bridge de outro container.
+
 ## Display por plataforma
 
 Profiles podem declarar overrides de display em `display.platforms`. O deploy

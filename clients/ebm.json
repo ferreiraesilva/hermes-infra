@@ -20,7 +20,7 @@
             "enabled": true,
             "mode": "bot",
             "account_phone": "5562994758635",
-            "bridge_port": 3000,
+            "bridge_port": 3001,
             "bridge_script": "/opt/hermes/plugins/scripts/whatsapp-bridge/bridge.js",
             "session_path": "/opt/data/whatsapp/session",
             "dm_policy": "open",
