@@ -345,6 +345,16 @@ if [[ "$WHATSAPP_ENABLED" == "true" ]]; then
     python3 "$DATA_DIR/product-src/taskme/ci/patch_hermes_bridge.py" --bridge "$DATA_DIR/runtime/whatsapp-bridge/bridge.js" --no-restart
   fi
 
+  # The WhatsApp adapter reads runtime-only bridge settings from
+  # PlatformConfig.extra, which is populated from platforms.whatsapp.extra.
+  # Keep the older top-level whatsapp.extra keys as harmless documentation /
+  # backwards compatibility, but make platforms.whatsapp.extra authoritative.
+  hermes_one_shot config set platforms.whatsapp.enabled true
+  hermes_one_shot config set platforms.whatsapp.extra.bridge_port "$WHATSAPP_BRIDGE_PORT"
+  hermes_one_shot config set platforms.whatsapp.extra.bridge_script "$WHATSAPP_BRIDGE_SCRIPT"
+  hermes_one_shot config set platforms.whatsapp.extra.session_path "$WHATSAPP_SESSION_PATH"
+  hermes_one_shot config set platforms.whatsapp.extra.dm_policy "$WHATSAPP_DM_POLICY"
+  hermes_one_shot config set platforms.whatsapp.extra.group_policy "$WHATSAPP_GROUP_POLICY"
   hermes_one_shot config set whatsapp.extra.bridge_port "$WHATSAPP_BRIDGE_PORT"
   hermes_one_shot config set whatsapp.extra.bridge_script "$WHATSAPP_BRIDGE_SCRIPT"
   hermes_one_shot config set whatsapp.extra.session_path "$WHATSAPP_SESSION_PATH"

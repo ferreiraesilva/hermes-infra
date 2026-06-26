@@ -173,8 +173,10 @@ o deploy:
 
 - grava `WHATSAPP_ENABLED=true`, `WHATSAPP_MODE` e `WHATSAPP_ALLOWED_USERS` no
   `.env` do home do container;
-- configura `whatsapp.extra.bridge_port` e `whatsapp.extra.bridge_script` no
-  `config.yaml`;
+- configura `platforms.whatsapp.extra.bridge_port`,
+  `platforms.whatsapp.extra.bridge_script` e
+  `platforms.whatsapp.extra.session_path` no `config.yaml` — este é o caminho
+  consumido pelo `PlatformConfig.extra` do adapter;
 - habilita o plugin bundled `whatsapp-platform` antes do primeiro boot do
   gateway.
 
