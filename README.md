@@ -183,6 +183,15 @@ em `~/.config/hermes-infra/secrets/<ambiente>/<cliente>.env`, usando a chave
 declarada em `whatsapp.allowed_users_secret`. O deploy não cria nem remove a
 sessão `whatsapp/session`; o pareamento por QR é uma etapa operacional separada.
 
+Profiles com número dedicado podem usar `whatsapp.dm_policy=open` sem
+`allowed_users_secret`. Nesse caso o número pareado pertence ao produto/cliente
+e os DMs são aceitos pelo adapter. Para produtos voltados a atendimento por DM,
+prefira `group_policy=disabled` até haver uma decisão explícita para grupos.
+
+`whatsapp.account_phone` é metadado operacional do inventário: documenta qual
+número deve ser pareado naquele profile, mas o vínculo real acontece no QR code
+gerado por `hermes whatsapp` dentro do container.
+
 ## Display por plataforma
 
 Profiles podem declarar overrides de display em `display.platforms`. O deploy

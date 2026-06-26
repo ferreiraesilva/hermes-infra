@@ -67,6 +67,24 @@ def main() -> int:
                         errors.append(f"{client_id}/{env_id}: produto {pid} em 2 profiles ({product_owner[pid]} e {profile_id}); um produto = um container")
                     product_owner[pid] = profile_id
 
+                product_env = profile.get("product_env", {})
+                if product_env:
+                    if not isinstance(product_env, dict):
+                        errors.append(f"{client_id}/{env_id}/{profile_id}: product_env deve ser objeto")
+                    else:
+                        unknown_products = set(product_env) - set(selected)
+                        if unknown_products:
+                            errors.append(f"{client_id}/{env_id}/{profile_id}: product_env referencia produtos fora do profile: {sorted(unknown_products)}")
+                        for product_id, env_overrides in product_env.items():
+                            if not isinstance(env_overrides, dict):
+                                errors.append(f"{client_id}/{env_id}/{profile_id}: product_env.{product_id} deve ser objeto")
+                                continue
+                            for key, value in env_overrides.items():
+                                if not isinstance(key, str) or not key or "=" in key:
+                                    errors.append(f"{client_id}/{env_id}/{profile_id}: product_env.{product_id} tem chave invalida: {key!r}")
+                                if not isinstance(value, (str, int, float, bool)):
+                                    errors.append(f"{client_id}/{env_id}/{profile_id}: product_env.{product_id}.{key} deve ser escalar")
+
                 if not profile.get("telegram_secret"):
                     errors.append(f"{client_id}/{env_id}/{profile_id}: secret Telegram ausente")
                 telegram_code = profile.get("telegram_code", "")
@@ -111,18 +129,27 @@ def main() -> int:
                         bridge_script = whatsapp.get("bridge_script", "/opt/hermes/scripts/whatsapp-bridge/bridge.js")
                         session_path = whatsapp.get("session_path", "/opt/data/whatsapp/session")
                         allowed_users_secret = whatsapp.get("allowed_users_secret", "")
+                        account_phone = whatsapp.get("account_phone", "")
+                        dm_policy = whatsapp.get("dm_policy", "open")
+                        group_policy = whatsapp.get("group_policy", "open")
                         if not isinstance(enabled, bool):
                             errors.append(f"{client_id}/{env_id}/{profile_id}: whatsapp.enabled deve ser booleano")
                         if mode not in {"bot", "self-chat"}:
                             errors.append(f"{client_id}/{env_id}/{profile_id}: whatsapp.mode deve ser bot ou self-chat")
+                        if account_phone and (not isinstance(account_phone, str) or not account_phone.isdigit()):
+                            errors.append(f"{client_id}/{env_id}/{profile_id}: whatsapp.account_phone deve conter apenas digitos")
+                        if dm_policy not in {"open", "allowlist", "disabled"}:
+                            errors.append(f"{client_id}/{env_id}/{profile_id}: whatsapp.dm_policy deve ser open, allowlist ou disabled")
+                        if group_policy not in {"open", "allowlist", "disabled"}:
+                            errors.append(f"{client_id}/{env_id}/{profile_id}: whatsapp.group_policy deve ser open, allowlist ou disabled")
                         if not isinstance(bridge_port, int) or not (1024 <= bridge_port <= 65535):
                             errors.append(f"{client_id}/{env_id}/{profile_id}: whatsapp.bridge_port deve ser porta TCP válida")
                         if not isinstance(bridge_script, str) or not bridge_script.startswith("/"):
                             errors.append(f"{client_id}/{env_id}/{profile_id}: whatsapp.bridge_script deve ser caminho absoluto")
                         if not isinstance(session_path, str) or not session_path.startswith("/"):
                             errors.append(f"{client_id}/{env_id}/{profile_id}: whatsapp.session_path deve ser caminho absoluto")
-                        if enabled and (not isinstance(allowed_users_secret, str) or not allowed_users_secret):
-                            errors.append(f"{client_id}/{env_id}/{profile_id}: whatsapp.allowed_users_secret é obrigatório quando habilitado")
+                        if enabled and dm_policy == "allowlist" and (not isinstance(allowed_users_secret, str) or not allowed_users_secret):
+                            errors.append(f"{client_id}/{env_id}/{profile_id}: whatsapp.allowed_users_secret é obrigatório quando dm_policy=allowlist")
 
                 display = profile.get("display", {})
                 if display:

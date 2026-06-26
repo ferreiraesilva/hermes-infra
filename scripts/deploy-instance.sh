@@ -96,6 +96,8 @@ WHATSAPP_BRIDGE_PORT="$(python3 -c "import json,sys;print(json.load(open(sys.arg
 WHATSAPP_BRIDGE_SCRIPT="$(python3 -c "import json,sys;print(json.load(open(sys.argv[1])).get('whatsapp',{}).get('bridge_script', '/opt/hermes/scripts/whatsapp-bridge/bridge.js'))" "$PLAN")"
 WHATSAPP_SESSION_PATH="$(python3 -c "import json,sys;print(json.load(open(sys.argv[1])).get('whatsapp',{}).get('session_path', '/opt/data/whatsapp/session'))" "$PLAN")"
 WHATSAPP_ALLOWED_USERS_SECRET="$(python3 -c "import json,sys;print(json.load(open(sys.argv[1])).get('whatsapp',{}).get('allowed_users_secret', ''))" "$PLAN")"
+WHATSAPP_DM_POLICY="$(python3 -c "import json,sys;print(json.load(open(sys.argv[1])).get('whatsapp',{}).get('dm_policy', 'open'))" "$PLAN")"
+WHATSAPP_GROUP_POLICY="$(python3 -c "import json,sys;print(json.load(open(sys.argv[1])).get('whatsapp',{}).get('group_policy', 'open'))" "$PLAN")"
 
 mkdir -p "$RUNTIME_ROOT"
 IMAGE_ENV="$RUNTIME_ROOT/hermes-image.env"
@@ -126,7 +128,7 @@ if [[ "$DASHBOARD_ENABLED" == "true" && -n "$DASHBOARD_BASIC_AUTH_PASSWORD_SECRE
   [[ -n "$DASHBOARD_BASIC_AUTH_USERNAME" ]] || { echo "dashboard basic auth exige basic_auth_username no inventário" >&2; exit 1; }
   [[ -n "$dashboard_basic_auth_password" ]] || { echo "senha do dashboard ausente: defina $DASHBOARD_BASIC_AUTH_PASSWORD_SECRET em $CLIENT_ENV" >&2; exit 1; }
 fi
-if [[ "$WHATSAPP_ENABLED" == "true" ]]; then
+if [[ "$WHATSAPP_ENABLED" == "true" && "$WHATSAPP_DM_POLICY" == "allowlist" ]]; then
   [[ -n "$WHATSAPP_ALLOWED_USERS_SECRET" ]] || { echo "whatsapp habilitado exige allowed_users_secret no inventário" >&2; exit 1; }
   whatsapp_allowed_users="${!WHATSAPP_ALLOWED_USERS_SECRET:-}"
   [[ -n "$whatsapp_allowed_users" ]] || { echo "allowlist WhatsApp ausente: defina $WHATSAPP_ALLOWED_USERS_SECRET em $CLIENT_ENV" >&2; exit 1; }
@@ -279,7 +281,9 @@ fi
   if [[ "$WHATSAPP_ENABLED" == "true" ]]; then
     printf 'WHATSAPP_ENABLED=true\n'
     printf 'WHATSAPP_MODE=%s\n' "$WHATSAPP_MODE_VALUE"
-    printf 'WHATSAPP_ALLOWED_USERS=%s\n' "$whatsapp_allowed_users"
+    if [[ "$WHATSAPP_DM_POLICY" == "allowlist" ]]; then
+      printf 'WHATSAPP_ALLOWED_USERS=%s\n' "$whatsapp_allowed_users"
+    fi
   fi
 } > "$DATA_DIR/.env"
 chmod 600 "$DATA_DIR/.env"
@@ -342,6 +346,8 @@ if [[ "$WHATSAPP_ENABLED" == "true" ]]; then
   hermes_one_shot config set whatsapp.extra.bridge_port "$WHATSAPP_BRIDGE_PORT"
   hermes_one_shot config set whatsapp.extra.bridge_script "$WHATSAPP_BRIDGE_SCRIPT"
   hermes_one_shot config set whatsapp.extra.session_path "$WHATSAPP_SESSION_PATH"
+  hermes_one_shot config set whatsapp.extra.dm_policy "$WHATSAPP_DM_POLICY"
+  hermes_one_shot config set whatsapp.extra.group_policy "$WHATSAPP_GROUP_POLICY"
 fi
 
 while IFS= read -r plugin; do

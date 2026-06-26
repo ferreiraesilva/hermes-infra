@@ -57,10 +57,13 @@ def profile_ids(env_id: str, client_id: str) -> list[str]:
                 return [p["id"] for p in deployment["profiles"]]
     raise KeyError(f"cliente/ambiente não encontrado: {env_id}/{client_id}")
 
-def db_for(product: dict, client_id: str) -> dict:
+def db_for(product: dict, client_id: str, env_override: dict | None = None) -> dict:
     """Banco/role/var por (produto x cliente). Sem ambiente no nome: o ambiente
     já é a separação física (postgres-hml vs postgres-prd)."""
     slug = product["db_slug"]
+    env = dict(product.get("env", {}))
+    if env_override:
+        env.update(env_override)
     return {
         "product": product["id"],
         "db_slug": slug,
@@ -72,7 +75,7 @@ def db_for(product: dict, client_id: str) -> dict:
         "ref_hml": product.get("ref_hml", ""),
         "migrations": product.get("migrations", ""),
         "seed_hml": product.get("seed_hml", ""),
-        "env": product.get("env", {}),
+        "env": env,
     }
 
 def plan(env_id: str, client_id: str, profile_id: str) -> dict:
@@ -81,7 +84,11 @@ def plan(env_id: str, client_id: str, profile_id: str) -> dict:
     catalog = products()
     instance = f"{client_id}-{profile_id}"
 
-    databases = [db_for(catalog[pid], client_id) for pid in profile["products"]]
+    product_env = profile.get("product_env", {})
+    databases = [
+        db_for(catalog[pid], client_id, product_env.get(pid, {}))
+        for pid in profile["products"]
+    ]
     plugin_sources = [
         {"plugin": catalog[pid]["plugin_name"], "db_slug": catalog[pid]["db_slug"],
          "soul": catalog[pid].get("soul", "")}
