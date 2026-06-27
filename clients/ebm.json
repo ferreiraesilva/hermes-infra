@@ -25,6 +25,13 @@
             "session_path": "/opt/data/whatsapp/session",
             "dm_policy": "open",
             "group_policy": "disabled"
+          },
+          "display": {
+            "platforms": {
+              "whatsapp": {
+                "tool_progress": "off"
+              }
+            }
           }
         }
       ]

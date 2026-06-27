@@ -215,6 +215,7 @@ env = next(d["env"] for d in plan["databases"] if d["db_slug"] == sys.argv[2])
 for k, v in env.items():
     print(f"{k}={v}")
 PY
+  [[ -n "${OPENROUTER_API_KEY:-}" ]] && echo "OPENROUTER_API_KEY=${OPENROUTER_API_KEY}"
   } > "$target/.env"
   chmod 600 "$target/.env"
 
@@ -281,6 +282,7 @@ fi
   if [[ "$WHATSAPP_ENABLED" == "true" ]]; then
     printf 'WHATSAPP_ENABLED=true\n'
     printf 'WHATSAPP_MODE=%s\n' "$WHATSAPP_MODE_VALUE"
+    printf 'HERMES_GATEWAY_PLATFORM_CONNECT_TIMEOUT=120\n'
     if [[ "$WHATSAPP_DM_POLICY" == "allowlist" ]]; then
       printf 'WHATSAPP_ALLOWED_USERS=%s\n' "$whatsapp_allowed_users"
     elif [[ "$WHATSAPP_DM_POLICY" == "open" ]]; then
@@ -344,6 +346,12 @@ if [[ "$WHATSAPP_ENABLED" == "true" ]]; then
     echo "Aplicando patch do whatsapp-bridge do TaskMe..."
     python3 "$DATA_DIR/product-src/taskme/ci/patch_hermes_bridge.py" --bridge "$DATA_DIR/runtime/whatsapp-bridge/bridge.js" --no-restart
   fi
+
+  if [[ -f "$ROOT/scripts/patch_bridge_caption.py" ]]; then
+    echo "Aplicando patch de legenda (caption) do whatsapp-bridge..."
+    python3 "$ROOT/scripts/patch_bridge_caption.py" --bridge "$DATA_DIR/runtime/whatsapp-bridge/bridge.js"
+  fi
+
 
   # The WhatsApp adapter reads runtime-only bridge settings from
   # PlatformConfig.extra, which is populated from platforms.whatsapp.extra.
