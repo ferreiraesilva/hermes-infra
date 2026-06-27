@@ -215,6 +215,7 @@ env = next(d["env"] for d in plan["databases"] if d["db_slug"] == sys.argv[2])
 for k, v in env.items():
     print(f"{k}={v}")
 PY
+  [[ -n "${OPENROUTER_API_KEY:-}" ]] && echo "OPENROUTER_API_KEY=${OPENROUTER_API_KEY}"
   } > "$target/.env"
   chmod 600 "$target/.env"
 
