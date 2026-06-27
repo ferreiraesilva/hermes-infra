@@ -17,7 +17,17 @@
           "products": ["minhaincorporadora"],
           "telegram_code": "MI",
           "telegram_bot_username": "TMHA_City_MI_Hml_bot",
-          "telegram_secret": "TMHA_CITY_MI_HML_BOT_TOKEN"
+          "telegram_secret": "TMHA_CITY_MI_HML_BOT_TOKEN",
+          "display": {
+            "platforms": {
+              "whatsapp": {
+                "tool_progress": "off"
+              },
+              "telegram": {
+                "tool_progress": "off"
+              }
+            }
+          }
         }
       ]
     }

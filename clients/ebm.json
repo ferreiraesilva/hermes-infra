@@ -30,6 +30,9 @@
             "platforms": {
               "whatsapp": {
                 "tool_progress": "off"
+              },
+              "telegram": {
+                "tool_progress": "off"
               }
             }
           }
