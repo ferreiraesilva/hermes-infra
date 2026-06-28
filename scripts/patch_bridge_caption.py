@@ -135,7 +135,9 @@ app.post('/send', async (req, res) => {
     let msgPayload;
 
     let mergedCaption = caption;
-    if (pendingCaptions.has(chatId)) {
+    // Explicit adapter captions always win. Buffered text is only a legacy
+    // fallback for callers that did not provide a native caption.
+    if (!mergedCaption && pendingCaptions.has(chatId)) {
       const pending = pendingCaptions.get(chatId);
       clearTimeout(pending.timer);
       if (type !== 'audio') {

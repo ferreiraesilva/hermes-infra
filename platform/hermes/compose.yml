@@ -9,6 +9,9 @@ services:
       - ${HERMES_DATA_DIR:?defina HERMES_DATA_DIR}:/opt/data
       - ${HERMES_DATA_DIR:?defina HERMES_DATA_DIR}/runtime/whatsapp-bridge:/opt/hermes/plugins/scripts/whatsapp-bridge:ro
       - ${HERMES_DATA_DIR:?defina HERMES_DATA_DIR}/runtime/telegram-platform/adapter.py:/opt/hermes/plugins/platforms/telegram/adapter.py:ro
+      - ${HERMES_DATA_DIR:?defina HERMES_DATA_DIR}/runtime/hermes-agent-overlay/gateway/platforms/base.py:/opt/hermes/gateway/platforms/base.py:ro
+      - ${HERMES_DATA_DIR:?defina HERMES_DATA_DIR}/runtime/hermes-agent-overlay/gateway/run.py:/opt/hermes/gateway/run.py:ro
+      - ${HERMES_DATA_DIR:?defina HERMES_DATA_DIR}/runtime/hermes-agent-overlay/gateway/stream_consumer.py:/opt/hermes/gateway/stream_consumer.py:ro
       - ${HERMES_FILES_DIR:?defina HERMES_FILES_DIR}:/opt/data/files
     environment:
       HERMES_UID: ${HERMES_UID:?defina HERMES_UID}

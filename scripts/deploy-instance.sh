@@ -139,7 +139,8 @@ health="$(docker inspect -f '{{.State.Health.Status}}' "$POSTGRES_CONTAINER" 2>/
 [[ "$health" == "healthy" ]] || { echo "$POSTGRES_CONTAINER não está saudável; nada será criado" >&2; exit 1; }
 
 umask 077
-mkdir -p "$DATA_DIR/plugins" "$DATA_DIR/product-src" "$DATA_DIR/runtime/whatsapp-bridge"
+mkdir -p "$DATA_DIR/plugins" "$DATA_DIR/product-src" "$DATA_DIR/runtime/whatsapp-bridge" \
+  "$DATA_DIR/runtime/hermes-agent-overlay"
 chmod 700 "$DATA_DIR"
 mkdir -p "$FILES_DIR"; chmod 700 "$FILES_DIR"
 
@@ -333,6 +334,30 @@ while IFS=$'\t' read -r config_path config_value; do
   [[ -n "$config_path" ]] || continue
   hermes_one_shot config set "$config_path" "$config_value"
 done < <(display_rows)
+
+# --- Hermes Agent overlay: caption nativa exclusivamente para videos --------
+# Parte sempre da imagem pinada e reaplica um patch versionado. Se a imagem
+# mudar e os anchors deixarem de casar, o deploy falha antes de reiniciar o
+# gateway, evitando drift ou edicao manual dentro do container.
+HERMES_AGENT_OVERLAY="$DATA_DIR/runtime/hermes-agent-overlay"
+HERMES_VIDEO_CAPTION_PATCH="$ROOT/patches/hermes-agent/video-caption.patch"
+[[ -f "$HERMES_VIDEO_CAPTION_PATCH" ]] || {
+  echo "patch de caption de video ausente: $HERMES_VIDEO_CAPTION_PATCH" >&2
+  exit 1
+}
+docker run --rm \
+  --entrypoint sh \
+  -v "$DATA_DIR/runtime:/runtime" \
+  "$HERMES_IMAGE" \
+  -c "rm -rf /runtime/hermes-agent-overlay && mkdir -p /runtime/hermes-agent-overlay/gateway/platforms && cp /opt/hermes/gateway/platforms/base.py /runtime/hermes-agent-overlay/gateway/platforms/base.py && cp /opt/hermes/gateway/run.py /runtime/hermes-agent-overlay/gateway/run.py && cp /opt/hermes/gateway/stream_consumer.py /runtime/hermes-agent-overlay/gateway/stream_consumer.py && chown -R $(id -u):$(id -g) /runtime/hermes-agent-overlay"
+chmod -R u+w "$HERMES_AGENT_OVERLAY"
+(
+  cd "$HERMES_AGENT_OVERLAY"
+  git apply --check "$HERMES_VIDEO_CAPTION_PATCH"
+  git apply "$HERMES_VIDEO_CAPTION_PATCH"
+  python3 -m py_compile gateway/platforms/base.py gateway/run.py gateway/stream_consumer.py
+)
+
 if [[ "$WHATSAPP_ENABLED" == "true" ]]; then
   docker run --rm \
     --entrypoint sh \

@@ -1,0 +1,230 @@
+diff --git a/gateway/platforms/base.py b/gateway/platforms/base.py
+--- a/gateway/platforms/base.py
++++ b/gateway/platforms/base.py
+@@ -8,6 +8,7 @@ and implement the required methods.
+ import asyncio
+ import inspect
+ import ipaddress
++import json
+ import logging
+ import os
+ import random
+@@ -1404,6 +1405,16 @@ MEDIA_TAG_CLEANUP_RE = re.compile(
+     re.IGNORECASE,
+ )
+ 
++# Structured directive used only for native video captions. Image delivery
++# remains on the existing markdown-image path until it is migrated separately.
++# Example:
++#   MEDIA_CAPTION:{"path":"/tmp/tour.mp4","caption":"Tour do decorado.","type":"video"}
++MEDIA_CAPTION_RE = re.compile(
++    r'^[ \t]*MEDIA_CAPTION:\s*'
++    r'(?P<payload>\{(?=[^\n]*"type"\s*:\s*"video")[^\n]*\})[ \t]*$',
++    re.MULTILINE,
++)
++
+ 
+ def get_document_cache_dir() -> Path:
+     """Return the document cache directory, creating it if it doesn't exist."""
+@@ -3234,6 +3244,65 @@ class BasePlatformAdapter(ABC):
+                 logger.warning("Skipping unsafe local file path: %s", _log_safe_path(raw))
+         return safe_paths
+ 
++    @staticmethod
++    def extract_captioned_videos(content: str) -> Tuple[List[Dict[str, Any]], str]:
++        """Extract safe local videos carrying an explicit native caption.
++
++        Only video paths are accepted. Image directives are deliberately left
++        untouched so this feature cannot change the established image flow.
++        """
++        if "MEDIA_CAPTION:" not in content:
++            return [], content
++
++        videos: List[Dict[str, Any]] = []
++        valid_spans: List[Tuple[int, int]] = []
++        scan_content = BasePlatformAdapter._mask_protected_spans(content)
++        video_exts = {'.mp4', '.mov', '.avi', '.mkv', '.webm', '.3gp', '.m4v'}
++
++        for match in MEDIA_CAPTION_RE.finditer(scan_content):
++            payload_text = content[match.start("payload"):match.end("payload")]
++            try:
++                payload = json.loads(payload_text)
++            except (TypeError, ValueError):
++                continue
++            if not isinstance(payload, dict):
++                continue
++
++            raw_path = str(payload.get("path") or "").strip()
++            media_type = str(payload.get("type") or "").strip().lower()
++            if not raw_path:
++                continue
++            if media_type and media_type != "video":
++                continue
++            if Path(raw_path).suffix.lower() not in video_exts:
++                continue
++
++            safe_path = validate_media_delivery_path(os.path.expanduser(raw_path))
++            if not safe_path:
++                logger.warning(
++                    "Skipping unsafe MEDIA_CAPTION video path: %s",
++                    _log_safe_path(raw_path),
++                )
++                continue
++
++            videos.append({
++                "path": safe_path,
++                "caption": str(payload.get("caption") or "").strip() or None,
++            })
++            valid_spans.append((match.start(), match.end()))
++
++        if not valid_spans:
++            return [], content
++
++        chars = list(content)
++        for start, end in valid_spans:
++            for idx in range(start, end):
++                if chars[idx] != '\n':
++                    chars[idx] = ' '
++        cleaned = ''.join(chars)
++        cleaned = re.sub(r'\n{3,}', '\n\n', cleaned).strip()
++        return videos, cleaned
++
+ 
+     @staticmethod
+     def _mask_protected_spans(content: str) -> str:
+@@ -4590,6 +4659,10 @@ class BasePlatformAdapter(ABC):
+                 # Pre-extract snapshot for the #29346 recovery/invariant below.
+                 _response_pre_extract = response
+ 
++                # Extract captioned videos first. This is intentionally separate
++                # from extract_images(), preserving the established image path.
++                captioned_videos, response = self.extract_captioned_videos(response)
++
+                 # Extract MEDIA:<path> tags (from TTS tool) before other processing
+                 media_files, response = self.extract_media(response)
+                 media_files = self.filter_media_delivery_paths(media_files)
+@@ -4619,7 +4692,7 @@ class BasePlatformAdapter(ABC):
+                 # empty text with no attachment, and the `if text_content` guard
+                 # below then drops it silently. Recover on every platform (#33842
+                 # was Discord-only); the guard avoids duplicating an attachment.
+-                if not (text_content or images or local_files or media_files):
++                if not (text_content or images or local_files or media_files or captioned_videos):
+                     # Recover from the post-extract_media `response`, not the raw
+                     # snapshot: extract_media already stripped MEDIA (incl. spaced
+                     # paths) with its full grammar, so no fragment can leak.
+@@ -4732,6 +4805,31 @@ class BasePlatformAdapter(ABC):
+                     except Exception as batch_err:
+                         logger.warning("[%s] Error batching images: %s", self.name, batch_err, exc_info=True)
+ 
++                # Captioned videos use the native adapter method. Images never
++                # enter this branch and continue through send_multiple_images().
++                for item in captioned_videos:
++                    if human_delay > 0:
++                        await asyncio.sleep(human_delay)
++                    try:
++                        result = await self.send_video(
++                            chat_id=event.source.chat_id,
++                            video_path=item["path"],
++                            caption=item.get("caption"),
++                            metadata=_final_thread_metadata,
++                        )
++                        if not result.success:
++                            logger.warning(
++                                "[%s] Failed to send captioned video: %s",
++                                self.name,
++                                result.error,
++                            )
++                    except Exception as video_err:
++                        logger.warning(
++                            "[%s] Error sending captioned video: %s",
++                            self.name,
++                            video_err,
++                        )
++
+ 
+                 # Send extracted media files — route by file type
+                 _VIDEO_EXTS = {'.mp4', '.mov', '.avi', '.mkv', '.webm', '.3gp'}
+@@ -4828,7 +4926,7 @@ class BasePlatformAdapter(ABC):
+                 # deliverable, fail loudly rather than dropping it in silence.
+                 _anything_delivered = (
+                     delivery_attempted or _tts_caption_delivered
+-                    or images or local_files or media_files
++                    or images or local_files or media_files or captioned_videos
+                 )
+                 if not _anything_delivered and _response_pre_extract.strip():
+                     logger.error(
+diff --git a/gateway/run.py b/gateway/run.py
+--- a/gateway/run.py
++++ b/gateway/run.py
+@@ -11816,6 +11816,7 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
+ 
+             from gateway.platforms.base import BasePlatformAdapter, should_send_media_as_audio
+ 
++            captioned_videos, response = adapter.extract_captioned_videos(response)
+             media_files, cleaned = adapter.extract_media(response)
+             media_files = BasePlatformAdapter.filter_media_delivery_paths(media_files)
+             # Chain the cleaned text through each extractor (extract_media →
+@@ -11831,6 +11832,27 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
+ 
+             _thread_meta = self._thread_metadata_for_source(event.source, self._reply_anchor_for_event(event))
+ 
++            for item in captioned_videos:
++                try:
++                    result = await adapter.send_video(
++                        chat_id=event.source.chat_id,
++                        video_path=item["path"],
++                        caption=item.get("caption"),
++                        metadata=_thread_meta,
++                    )
++                    if not getattr(result, "success", False):
++                        logger.warning(
++                            "[%s] Post-stream captioned video delivery failed: %s",
++                            adapter.name,
++                            getattr(result, "error", None),
++                        )
++                except Exception as e:
++                    logger.warning(
++                        "[%s] Post-stream captioned video delivery failed: %s",
++                        adapter.name,
++                        e,
++                    )
++
+             _VIDEO_EXTS = {'.mp4', '.mov', '.avi', '.mkv', '.webm', '.3gp'}
+             _IMAGE_EXTS = {'.jpg', '.jpeg', '.png', '.webp', '.gif'}
+ 
+diff --git a/gateway/stream_consumer.py b/gateway/stream_consumer.py
+--- a/gateway/stream_consumer.py
++++ b/gateway/stream_consumer.py
+@@ -26,6 +26,7 @@ from typing import Any, Callable, Optional
+ 
+ from gateway.platforms.base import BasePlatformAdapter as _BasePlatformAdapter
+ from gateway.platforms.base import _custom_unit_to_cp
++from gateway.platforms.base import MEDIA_CAPTION_RE
+ from gateway.platforms.base import MEDIA_TAG_CLEANUP_RE
+ from gateway.config import (
+     DEFAULT_STREAMING_EDIT_INTERVAL as _DEFAULT_STREAMING_EDIT_INTERVAL,
+@@ -778,6 +779,7 @@ class GatewayStreamConsumer:
+     # Streaming and non-streaming paths share the same regex, so a tag is
+     # treated identically whichever path delivered the text.
+     _MEDIA_RE = MEDIA_TAG_CLEANUP_RE
++    _MEDIA_CAPTION_RE = MEDIA_CAPTION_RE
+ 
+     @staticmethod
+     def _clean_for_display(text: str) -> str:
+@@ -790,10 +792,15 @@ class GatewayStreamConsumer:
+         stream finishes — we just need to hide the raw directives from the
+         user.
+         """
+-        if "MEDIA:" not in text and "[[audio_as_voice]]" not in text:
++        if (
++            "MEDIA:" not in text
++            and "MEDIA_CAPTION:" not in text
++            and "[[audio_as_voice]]" not in text
++        ):
+             return text
+         cleaned = text.replace("[[audio_as_voice]]", "")
+         cleaned = GatewayStreamConsumer._MEDIA_RE.sub("", cleaned)
++        cleaned = GatewayStreamConsumer._MEDIA_CAPTION_RE.sub("", cleaned)
+         # Collapse excessive blank lines left behind by removed tags
+         cleaned = re.sub(r'\n{3,}', '\n\n', cleaned)
+         # Strip trailing whitespace/newlines but preserve leading content
