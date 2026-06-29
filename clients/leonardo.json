@@ -1,13 +1,13 @@
 {
   "client": {"id": "leonardo", "name": "Leonardo Ferreira", "code": "Leo"},
-  "subscriptions": ["taskme"],
+  "subscriptions": ["taskme", "semcontrole"],
   "deployments": [
     {
       "environment": "hml",
       "profiles": [
         {
           "id": "pessoal",
-          "products": ["taskme"],
+          "products": ["taskme", "semcontrole"],
           "telegram_code": "TM",
           "telegram_bot_username": "TMHA_Leo_TM_Hml_bot",
           "telegram_secret": "TMHA_LEO_TM_HML_BOT_TOKEN",

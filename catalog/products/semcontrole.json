@@ -1,0 +1,11 @@
+{
+  "id": "semcontrole",
+  "name": "SemControle",
+  "code": "SC",
+  "db_slug": "semcontrole",
+  "repository": "",
+  "plugin_name": "semcontrole",
+  "env": {
+    "TZ": "America/Sao_Paulo"
+  }
+}
