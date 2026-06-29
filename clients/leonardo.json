@@ -9,7 +9,7 @@
           "id": "pessoal",
           "products": ["taskme", "semcontrole"],
           "telegram_code": "TM",
-          "telegram_bot_username": "TMHA_CITY_MI_Hml_bot",
+          "telegram_bot_username": "TMHA_Leo_TM_Hml_bot",
           "telegram_secret": "TMHA_LEO_TM_HML_BOT_TOKEN",
           "dashboard": {
             "enabled": true,
