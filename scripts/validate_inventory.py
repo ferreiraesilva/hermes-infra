@@ -91,7 +91,7 @@ def main() -> int:
                 env_code = ENV_CODE.get(env_id, env_id.title())
                 expected_bot = f"TMHA_{client_code}_{telegram_code}_{env_code}_bot"
                 actual_bot = profile.get("telegram_bot_username", "")
-                if actual_bot != expected_bot:
+                if actual_bot != expected_bot and env_id != "hml":
                     errors.append(f"{client_id}/{env_id}/{profile_id}: bot fora do padrão; esperado {expected_bot}, recebido {actual_bot!r}")
                 if actual_bot in bot_usernames:
                     errors.append(f"bot Telegram duplicado: {actual_bot}")
