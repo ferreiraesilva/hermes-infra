@@ -15,6 +15,13 @@ ENVIRONMENT="${1:-}"
 CLIENT="${2:-}"
 PROFILE="${3:-}"
 
+# Se CLIENT contiver hífen e PROFILE for vazio, divide no formato cliente-profile
+if [[ "$CLIENT" =~ - && -z "$PROFILE" ]]; then
+  PROFILE="${CLIENT#*-}"
+  CLIENT="${CLIENT%%-*}"
+fi
+
+
 choose() {  # prompt; lê linhas "id<TAB>rótulo" da entrada padrão
   local prompt="$1" row choice i id label
   local -a options=()

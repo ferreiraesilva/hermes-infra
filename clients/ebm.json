@@ -17,7 +17,7 @@
             }
           },
           "whatsapp": {
-            "enabled": true,
+            "enabled": false,
             "mode": "bot",
             "account_phone": "5562994758635",
             "bridge_port": 3001,
