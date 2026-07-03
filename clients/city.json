@@ -11,6 +11,11 @@
           "telegram_code": "MI",
           "telegram_bot_username": "TMHA_City_MI_Hml_bot",
           "telegram_secret": "TMHA_CITY_MI_HML_BOT_TOKEN",
+          "product_env": {
+            "minhaincorporadora": {
+              "MINHAINCORP_MODE": "dedicated"
+            }
+          },
           "display": {
             "platforms": {
               "whatsapp": {
