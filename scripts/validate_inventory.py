@@ -97,6 +97,39 @@ def main() -> int:
                     errors.append(f"bot Telegram duplicado: {actual_bot}")
                 bot_usernames.add(actual_bot)
 
+                telegram = profile.get("telegram", {})
+                if telegram:
+                    if not isinstance(telegram, dict):
+                        errors.append(f"{client_id}/{env_id}/{profile_id}: telegram deve ser objeto")
+                    else:
+                        admin_users = telegram.get("admin_users", [])
+                        home_channel = telegram.get("home_channel", "")
+                        unauthorized_message = telegram.get("unauthorized_dm_message", "")
+                        if not isinstance(admin_users, list) or not all(
+                            isinstance(user_id, str) and user_id.isdigit()
+                            for user_id in admin_users
+                        ):
+                            errors.append(
+                                f"{client_id}/{env_id}/{profile_id}: "
+                                "telegram.admin_users deve ser lista de IDs numericos"
+                            )
+                        if home_channel and (
+                            not isinstance(home_channel, str)
+                            or not home_channel.lstrip("-").isdigit()
+                        ):
+                            errors.append(
+                                f"{client_id}/{env_id}/{profile_id}: "
+                                "telegram.home_channel deve ser um chat ID numerico"
+                            )
+                        if unauthorized_message and (
+                            not isinstance(unauthorized_message, str)
+                            or "{code}" not in unauthorized_message
+                        ):
+                            errors.append(
+                                f"{client_id}/{env_id}/{profile_id}: "
+                                "telegram.unauthorized_dm_message deve ser string com {code}"
+                            )
+
                 dashboard = profile.get("dashboard", {})
                 if dashboard:
                     if not isinstance(dashboard, dict):

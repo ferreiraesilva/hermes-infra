@@ -91,6 +91,9 @@ POSTGRES_CONTAINER="$(field postgres_container)"
 POSTGRES_HOST="$(field postgres_host)"
 POSTGRES_PORT="$(field postgres_port)"
 TELEGRAM_SECRET="$(field telegram_secret)"
+TELEGRAM_ADMIN_USERS="$(python3 -c "import json,sys;print(','.join(json.load(open(sys.argv[1])).get('telegram',{}).get('admin_users',[])))" "$PLAN")"
+TELEGRAM_HOME_CHANNEL="$(python3 -c "import json,sys;print(json.load(open(sys.argv[1])).get('telegram',{}).get('home_channel',''))" "$PLAN")"
+TELEGRAM_UNAUTHORIZED_DM_MESSAGE="$(python3 -c "import json,sys;print(json.load(open(sys.argv[1])).get('telegram',{}).get('unauthorized_dm_message',''))" "$PLAN")"
 TENANT_NAME="$(field tenant_name)"
 DASHBOARD_ENABLED="$(python3 -c "import json,sys;print(str(json.load(open(sys.argv[1])).get('dashboard',{}).get('enabled', False)).lower())" "$PLAN")"
 DASHBOARD_HOST="$(python3 -c "import json,sys;print(json.load(open(sys.argv[1])).get('dashboard',{}).get('host', '0.0.0.0'))" "$PLAN")"
@@ -287,6 +290,7 @@ fi
   cat "$COMMON_ENV"
   printf 'TELEGRAM_BOT_TOKEN=%s\n' "$token"
   [[ -n "${TELEGRAM_ALLOWED_USERS:-}" ]] && printf 'TELEGRAM_ALLOWED_USERS=%s\n' "$TELEGRAM_ALLOWED_USERS"
+  [[ -n "$TELEGRAM_HOME_CHANNEL" ]] && printf 'TELEGRAM_HOME_CHANNEL=%s\n' "$TELEGRAM_HOME_CHANNEL"
   if [[ "$WHATSAPP_ENABLED" == "true" ]]; then
     printf 'WHATSAPP_ENABLED=true\n'
     printf 'WHATSAPP_MODE=%s\n' "$WHATSAPP_MODE_VALUE"
@@ -342,27 +346,41 @@ while IFS=$'\t' read -r config_path config_value; do
   hermes_one_shot config set "$config_path" "$config_value"
 done < <(display_rows)
 
+if [[ -n "$TELEGRAM_ADMIN_USERS" ]]; then
+  hermes_one_shot config set platforms.telegram.extra.allow_admin_from "$TELEGRAM_ADMIN_USERS"
+fi
+if [[ -n "$TELEGRAM_UNAUTHORIZED_DM_MESSAGE" ]]; then
+  hermes_one_shot config set platforms.telegram.extra.unauthorized_dm_message "$TELEGRAM_UNAUTHORIZED_DM_MESSAGE"
+fi
+
 # --- Hermes Agent overlay: caption nativa exclusivamente para videos --------
 # Parte sempre da imagem pinada e reaplica um patch versionado. Se a imagem
 # mudar e os anchors deixarem de casar, o deploy falha antes de reiniciar o
 # gateway, evitando drift ou edicao manual dentro do container.
 HERMES_AGENT_OVERLAY="$DATA_DIR/runtime/hermes-agent-overlay"
 HERMES_VIDEO_CAPTION_PATCH="$ROOT/patches/hermes-agent/video-caption.patch"
+HERMES_ACCESS_CONTROL_PATCH="$ROOT/patches/hermes-agent/access-control.patch"
 [[ -f "$HERMES_VIDEO_CAPTION_PATCH" ]] || {
   echo "patch de caption de video ausente: $HERMES_VIDEO_CAPTION_PATCH" >&2
+  exit 1
+}
+[[ -f "$HERMES_ACCESS_CONTROL_PATCH" ]] || {
+  echo "patch de controle de acesso ausente: $HERMES_ACCESS_CONTROL_PATCH" >&2
   exit 1
 }
 docker run --rm \
   --entrypoint sh \
   -v "$DATA_DIR/runtime:/runtime" \
   "$HERMES_IMAGE" \
-  -c "rm -rf /runtime/hermes-agent-overlay && mkdir -p /runtime/hermes-agent-overlay/gateway/platforms && cp /opt/hermes/gateway/platforms/base.py /runtime/hermes-agent-overlay/gateway/platforms/base.py && cp /opt/hermes/gateway/run.py /runtime/hermes-agent-overlay/gateway/run.py && cp /opt/hermes/gateway/stream_consumer.py /runtime/hermes-agent-overlay/gateway/stream_consumer.py && chown -R $(id -u):$(id -g) /runtime/hermes-agent-overlay"
+  -c "rm -rf /runtime/hermes-agent-overlay && mkdir -p /runtime/hermes-agent-overlay/gateway/platforms && cp /opt/hermes/gateway/platforms/base.py /runtime/hermes-agent-overlay/gateway/platforms/base.py && cp /opt/hermes/gateway/pairing.py /runtime/hermes-agent-overlay/gateway/pairing.py && cp /opt/hermes/gateway/run.py /runtime/hermes-agent-overlay/gateway/run.py && cp /opt/hermes/gateway/stream_consumer.py /runtime/hermes-agent-overlay/gateway/stream_consumer.py && chown -R $(id -u):$(id -g) /runtime/hermes-agent-overlay"
 chmod -R u+w "$HERMES_AGENT_OVERLAY"
 (
   cd "$HERMES_AGENT_OVERLAY"
   git apply --check "$HERMES_VIDEO_CAPTION_PATCH"
   git apply "$HERMES_VIDEO_CAPTION_PATCH"
-  python3 -m py_compile gateway/platforms/base.py gateway/run.py gateway/stream_consumer.py
+  git apply --check "$HERMES_ACCESS_CONTROL_PATCH"
+  git apply "$HERMES_ACCESS_CONTROL_PATCH"
+  python3 -m py_compile gateway/platforms/base.py gateway/pairing.py gateway/run.py gateway/stream_consumer.py
 )
 
 if [[ "$WHATSAPP_ENABLED" == "true" ]]; then
@@ -382,6 +400,16 @@ if [[ "$WHATSAPP_ENABLED" == "true" ]]; then
   if [[ -f "$ROOT/scripts/patch_bridge_caption.py" ]]; then
     echo "Aplicando patch de legenda (caption) do whatsapp-bridge..."
     python3 "$ROOT/scripts/patch_bridge_caption.py" --bridge "$DATA_DIR/runtime/whatsapp-bridge/bridge.js"
+  fi
+
+  if [[ -f "$ROOT/scripts/patch_bridge_lid_resolution.py" ]]; then
+    echo "Aplicando patch de resolução LID->telefone do whatsapp-bridge..."
+    python3 "$ROOT/scripts/patch_bridge_lid_resolution.py" --bridge "$DATA_DIR/runtime/whatsapp-bridge/bridge.js"
+  fi
+
+  if [[ -f "$ROOT/scripts/patch_bridge_anti_ban.py" ]]; then
+    echo "Aplicando patch de mitigação de ban (anti-ban) do whatsapp-bridge..."
+    python3 "$ROOT/scripts/patch_bridge_anti_ban.py" --bridge "$DATA_DIR/runtime/whatsapp-bridge/bridge.js"
   fi
 
 

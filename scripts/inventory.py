@@ -113,6 +113,7 @@ def plan(env_id: str, client_id: str, profile_id: str) -> dict:
         "postgres_port": env["postgres_port"],
         "telegram_bot_username": profile["telegram_bot_username"],
         "telegram_secret": profile["telegram_secret"],
+        "telegram": profile.get("telegram", {}),
         "dashboard": profile.get("dashboard", {"enabled": False}),
         "whatsapp": profile.get("whatsapp", {"enabled": False}),
         "display": profile.get("display", {}),
