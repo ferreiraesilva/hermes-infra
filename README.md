@@ -199,6 +199,18 @@ uma decisão explícita para grupos.
 número deve ser pareado naquele profile, mas o vínculo real acontece no QR code
 gerado por `hermes whatsapp` dentro do container.
 
+O overlay gerenciado do bridge serializa texto, voz, mídia e edições em uma fila
+global por bot. Os controles ficam no objeto `whatsapp` do profile:
+
+- `outbound_min_gap_ms` (padrão `2000`): intervalo mínimo entre envios reais;
+- `outbound_max_queue` (padrão `3`): limite de itens aguardando ou enviando;
+- `send_failure_limit` (padrão `3`): falhas consecutivas antes da pausa;
+- `reconnect_failure_limit` (padrão `5`): reconexões falhas antes da pausa;
+- `circuit_cooldown_ms` (padrão `900000`): pausa automática, 15 minutos.
+
+O endpoint `/health` do bridge informa profundidade e limite da fila, falhas
+consecutivas, tentativas de reconexão e tempo restante do circuit breaker.
+
 Como os containers Hermes rodam com `network_mode: host`, `whatsapp.bridge_port`
 precisa ser exclusivo por profile ativo na mesma máquina. Reutilizar a mesma porta
 faz um gateway falar com o bridge de outro container.

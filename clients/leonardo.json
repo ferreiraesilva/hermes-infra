@@ -24,7 +24,12 @@
             "bridge_port": 3000,
             "bridge_script": "/opt/data/runtime/whatsapp-bridge/bridge.js",
             "session_path": "/opt/data/whatsapp/session",
-            "allowed_users_secret": "TMHA_LEO_TM_HML_WHATSAPP_ALLOWED_USERS"
+            "allowed_users_secret": "TMHA_LEO_TM_HML_WHATSAPP_ALLOWED_USERS",
+            "outbound_min_gap_ms": 2000,
+            "outbound_max_queue": 3,
+            "send_failure_limit": 3,
+            "reconnect_failure_limit": 5,
+            "circuit_cooldown_ms": 900000
           },
           "display": {
             "platforms": {

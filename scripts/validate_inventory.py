@@ -165,6 +165,11 @@ def main() -> int:
                         account_phone = whatsapp.get("account_phone", "")
                         dm_policy = whatsapp.get("dm_policy", "open")
                         group_policy = whatsapp.get("group_policy", "open")
+                        outbound_min_gap_ms = whatsapp.get("outbound_min_gap_ms", 2000)
+                        outbound_max_queue = whatsapp.get("outbound_max_queue", 3)
+                        send_failure_limit = whatsapp.get("send_failure_limit", 3)
+                        reconnect_failure_limit = whatsapp.get("reconnect_failure_limit", 5)
+                        circuit_cooldown_ms = whatsapp.get("circuit_cooldown_ms", 900000)
                         if not isinstance(enabled, bool):
                             errors.append(f"{client_id}/{env_id}/{profile_id}: whatsapp.enabled deve ser booleano")
                         if mode not in {"bot", "self-chat"}:
@@ -175,6 +180,16 @@ def main() -> int:
                             errors.append(f"{client_id}/{env_id}/{profile_id}: whatsapp.dm_policy deve ser open, allowlist ou disabled")
                         if group_policy not in {"open", "allowlist", "disabled"}:
                             errors.append(f"{client_id}/{env_id}/{profile_id}: whatsapp.group_policy deve ser open, allowlist ou disabled")
+                        if not isinstance(outbound_min_gap_ms, int) or not (0 <= outbound_min_gap_ms <= 60000):
+                            errors.append(f"{client_id}/{env_id}/{profile_id}: whatsapp.outbound_min_gap_ms deve estar entre 0 e 60000")
+                        if not isinstance(outbound_max_queue, int) or not (1 <= outbound_max_queue <= 10000):
+                            errors.append(f"{client_id}/{env_id}/{profile_id}: whatsapp.outbound_max_queue deve estar entre 1 e 10000")
+                        if not isinstance(send_failure_limit, int) or not (1 <= send_failure_limit <= 100):
+                            errors.append(f"{client_id}/{env_id}/{profile_id}: whatsapp.send_failure_limit deve estar entre 1 e 100")
+                        if not isinstance(reconnect_failure_limit, int) or not (1 <= reconnect_failure_limit <= 100):
+                            errors.append(f"{client_id}/{env_id}/{profile_id}: whatsapp.reconnect_failure_limit deve estar entre 1 e 100")
+                        if not isinstance(circuit_cooldown_ms, int) or not (1000 <= circuit_cooldown_ms <= 86400000):
+                            errors.append(f"{client_id}/{env_id}/{profile_id}: whatsapp.circuit_cooldown_ms deve estar entre 1000 e 86400000")
                         if not isinstance(bridge_port, int) or not (1024 <= bridge_port <= 65535):
                             errors.append(f"{client_id}/{env_id}/{profile_id}: whatsapp.bridge_port deve ser porta TCP válida")
                         if not isinstance(bridge_script, str) or not bridge_script.startswith("/"):

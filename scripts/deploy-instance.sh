@@ -109,6 +109,11 @@ WHATSAPP_ALLOWED_USERS_SECRET="$(python3 -c "import json,sys;print(json.load(ope
 WHATSAPP_ACCOUNT_PHONE="$(python3 -c "import json,sys;print(json.load(open(sys.argv[1])).get('whatsapp',{}).get('account_phone', ''))" "$PLAN")"
 WHATSAPP_DM_POLICY="$(python3 -c "import json,sys;print(json.load(open(sys.argv[1])).get('whatsapp',{}).get('dm_policy', 'open'))" "$PLAN")"
 WHATSAPP_GROUP_POLICY="$(python3 -c "import json,sys;print(json.load(open(sys.argv[1])).get('whatsapp',{}).get('group_policy', 'open'))" "$PLAN")"
+WHATSAPP_OUTBOUND_MIN_GAP_MS="$(python3 -c "import json,sys;print(json.load(open(sys.argv[1])).get('whatsapp',{}).get('outbound_min_gap_ms', 2000))" "$PLAN")"
+WHATSAPP_OUTBOUND_MAX_QUEUE="$(python3 -c "import json,sys;print(json.load(open(sys.argv[1])).get('whatsapp',{}).get('outbound_max_queue', 3))" "$PLAN")"
+WHATSAPP_SEND_FAILURE_LIMIT="$(python3 -c "import json,sys;print(json.load(open(sys.argv[1])).get('whatsapp',{}).get('send_failure_limit', 3))" "$PLAN")"
+WHATSAPP_RECONNECT_FAILURE_LIMIT="$(python3 -c "import json,sys;print(json.load(open(sys.argv[1])).get('whatsapp',{}).get('reconnect_failure_limit', 5))" "$PLAN")"
+WHATSAPP_CIRCUIT_COOLDOWN_MS="$(python3 -c "import json,sys;print(json.load(open(sys.argv[1])).get('whatsapp',{}).get('circuit_cooldown_ms', 900000))" "$PLAN")"
 
 mkdir -p "$RUNTIME_ROOT"
 IMAGE_ENV="$RUNTIME_ROOT/hermes-image.env"
@@ -301,6 +306,11 @@ fi
     printf 'WHATSAPP_ENABLED=true\n'
     printf 'WHATSAPP_MODE=%s\n' "$WHATSAPP_MODE_VALUE"
     [[ -n "$WHATSAPP_ACCOUNT_PHONE" ]] && printf 'WHATSAPP_ACCOUNT_PHONE=%s\n' "$WHATSAPP_ACCOUNT_PHONE"
+    printf 'WHATSAPP_OUTBOUND_MIN_GAP_MS=%s\n' "$WHATSAPP_OUTBOUND_MIN_GAP_MS"
+    printf 'WHATSAPP_OUTBOUND_MAX_QUEUE=%s\n' "$WHATSAPP_OUTBOUND_MAX_QUEUE"
+    printf 'WHATSAPP_SEND_FAILURE_LIMIT=%s\n' "$WHATSAPP_SEND_FAILURE_LIMIT"
+    printf 'WHATSAPP_RECONNECT_FAILURE_LIMIT=%s\n' "$WHATSAPP_RECONNECT_FAILURE_LIMIT"
+    printf 'WHATSAPP_CIRCUIT_COOLDOWN_MS=%s\n' "$WHATSAPP_CIRCUIT_COOLDOWN_MS"
     printf 'HERMES_GATEWAY_PLATFORM_CONNECT_TIMEOUT=120\n'
     if [[ "$WHATSAPP_DM_POLICY" == "allowlist" ]]; then
       printf 'WHATSAPP_ALLOWED_USERS=%s\n' "$whatsapp_allowed_users"
