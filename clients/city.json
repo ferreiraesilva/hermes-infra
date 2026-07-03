@@ -1,17 +1,10 @@
 {
   "client": {"id": "city", "name": "City", "code": "City"},
-  "subscriptions": ["taskme", "minhaincorporadora"],
+  "subscriptions": ["minhaincorporadora"],
   "deployments": [
     {
       "environment": "hml",
       "profiles": [
-        {
-          "id": "interno",
-          "products": ["taskme"],
-          "telegram_code": "TM",
-          "telegram_bot_username": "TMHA_City_TM_Hml_bot",
-          "telegram_secret": "TMHA_CITY_TM_HML_BOT_TOKEN"
-        },
         {
           "id": "corretores",
           "products": ["minhaincorporadora"],
