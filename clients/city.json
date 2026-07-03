@@ -16,6 +16,11 @@
               "MINHAINCORP_MODE": "dedicated"
             }
           },
+          "telegram": {
+            "admin_users": ["1008988131"],
+            "home_channel": "1008988131",
+            "unauthorized_dm_message": "Este BOT é propriedade da City. Informe ao seu gerente o seguinte código para ser autorizado: {code}"
+          },
           "display": {
             "platforms": {
               "whatsapp": {
