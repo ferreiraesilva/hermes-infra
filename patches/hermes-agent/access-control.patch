@@ -20,36 +20,74 @@ diff --git a/gateway/pairing.py b/gateway/pairing.py
 diff --git a/gateway/run.py b/gateway/run.py
 --- a/gateway/run.py
 +++ b/gateway/run.py
-@@ -7786,6 +7786,32 @@ class GatewayRunner:
+@@ -7786,6 +7786,70 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
                  return None
          elif not self._is_user_authorized(source):
              logger.warning("Unauthorized user: %s (%s) on %s", source.user_id, source.user_name, source.platform.value)
 +            if source.chat_type == "dm":
-+                platform_cfg = self.config.platforms.get(source.platform)
-+                platform_extra = getattr(platform_cfg, "extra", None) if platform_cfg else None
-+                unauthorized_template = (
-+                    platform_extra.get("unauthorized_dm_message")
-+                    if isinstance(platform_extra, dict)
-+                    else None
-+                )
-+                if isinstance(unauthorized_template, str) and unauthorized_template.strip():
-+                    adapter = self.adapters.get(source.platform)
-+                    if adapter:
++                adapter = self.adapters.get(source.platform)
++                if adapter:
++                    import os
++                    import re
++                    hermes_home = os.environ.get("HERMES_HOME", "/opt/data")
++                    soul_path = os.path.join(hermes_home, "SOUL.md")
++                    identity = "Hermes Agent"
++                    if os.path.exists(soul_path):
 +                        try:
-+                            unauthorized_message = unauthorized_template.format(
-+                                code=source.user_id,
-+                                user_id=source.user_id,
-+                                user_name=source.user_name or "",
-+                                platform=source.platform.value,
-+                            )
-+                        except (KeyError, ValueError):
-+                            logger.exception(
-+                                "Invalid unauthorized_dm_message template for %s",
-+                                source.platform.value,
-+                            )
-+                            unauthorized_message = unauthorized_template
-+                        await adapter.send(source.chat_id, unauthorized_message)
-+                    return None
++                            with open(soul_path, "r", encoding="utf-8") as f:
++                                content = f.read().strip()
++                            if content:
++                                first_line = ""
++                                for line in content.splitlines():
++                                    line = line.strip()
++                                    if line and not line.startswith("#"):
++                                        first_line = line
++                                        break
++                                if not first_line:
++                                    for line in content.splitlines():
++                                        line = line.strip()
++                                        if line:
++                                            first_line = line.lstrip("#").strip()
++                                            break
++                                if first_line:
++                                    first_line = first_line.replace("**", "").replace("*", "")
++                                    sentences = re.split(r'(?<=[.!?])\s+', first_line)
++                                    if sentences:
++                                        first_sentence = sentences[0].strip()
++                                        lower_s = first_sentence.lower()
++                                        if lower_s.startswith("você é o "):
++                                            identity = "Eu sou o " + first_sentence[9:]
++                                        elif lower_s.startswith("você é "):
++                                            identity = "Eu sou " + first_sentence[7:]
++                                        elif lower_s.startswith("você se chama "):
++                                            identity = "Eu me chamo " + first_sentence[14:]
++                                        elif lower_s.startswith("you are the "):
++                                            identity = "I am the " + first_sentence[12:]
++                                        elif lower_s.startswith("you are "):
++                                            identity = "I am " + first_sentence[8:]
++                                        else:
++                                            identity = first_sentence
++                        except Exception:
++                            pass
++                    
++                    tenant_name = os.environ.get("HERMES_TENANT_NAME") or "EBM"
++                    is_pt = any(w in identity.lower() for w in ["eu sou", "assistente", "gerente", "vendas", "você", "chamo", "agente", "incorporadora"])
++                    if is_pt:
++                        unauthorized_message = (
++                            f"Olá! {identity}\n\n"
++                            f"Este bot é de uso restrito de {tenant_name}.\n\n"
++                            f"Para liberar o seu acesso, por favor, envie o seguinte código ao proprietário do bot:\n"
++                            f"`{source.user_id}`"
++                        )
++                    else:
++                        unauthorized_message = (
++                            f"Hello! {identity}\n\n"
++                            f"This bot is restricted to {tenant_name}.\n\n"
++                            f"To get authorized, please send the following code to the bot owner:\n"
++                            f"`{source.user_id}`"
++                        )
++                    await adapter.send(source.chat_id, unauthorized_message)
++                return None
              # In DMs: offer pairing code. In groups: silently ignore.
              if source.chat_type == "dm" and self._get_unauthorized_dm_behavior(source.platform) == "pair":
                  platform_name = source.platform.value if source.platform else "unknown"

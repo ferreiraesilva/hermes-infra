@@ -289,6 +289,7 @@ fi
 {
   cat "$COMMON_ENV"
   printf 'TELEGRAM_BOT_TOKEN=%s\n' "$token"
+  printf 'HERMES_TENANT_NAME=%s\n' "$TENANT_NAME"
   [[ -n "${TELEGRAM_ALLOWED_USERS:-}" ]] && printf 'TELEGRAM_ALLOWED_USERS=%s\n' "$TELEGRAM_ALLOWED_USERS"
   [[ -n "$TELEGRAM_HOME_CHANNEL" ]] && printf 'TELEGRAM_HOME_CHANNEL=%s\n' "$TELEGRAM_HOME_CHANNEL"
   if [[ "$WHATSAPP_ENABLED" == "true" ]]; then
@@ -400,11 +401,6 @@ if [[ "$WHATSAPP_ENABLED" == "true" ]]; then
   if [[ -f "$ROOT/scripts/patch_bridge_caption.py" ]]; then
     echo "Aplicando patch de legenda (caption) do whatsapp-bridge..."
     python3 "$ROOT/scripts/patch_bridge_caption.py" --bridge "$DATA_DIR/runtime/whatsapp-bridge/bridge.js"
-  fi
-
-  if [[ -f "$ROOT/scripts/patch_bridge_lid_resolution.py" ]]; then
-    echo "Aplicando patch de resolução LID->telefone do whatsapp-bridge..."
-    python3 "$ROOT/scripts/patch_bridge_lid_resolution.py" --bridge "$DATA_DIR/runtime/whatsapp-bridge/bridge.js"
   fi
 
   if [[ -f "$ROOT/scripts/patch_bridge_anti_ban.py" ]]; then
