@@ -106,6 +106,7 @@ WHATSAPP_BRIDGE_PORT="$(python3 -c "import json,sys;print(json.load(open(sys.arg
 WHATSAPP_BRIDGE_SCRIPT="$(python3 -c "import json,sys;print(json.load(open(sys.argv[1])).get('whatsapp',{}).get('bridge_script', '/opt/data/runtime/whatsapp-bridge/bridge.js'))" "$PLAN")"
 WHATSAPP_SESSION_PATH="$(python3 -c "import json,sys;print(json.load(open(sys.argv[1])).get('whatsapp',{}).get('session_path', '/opt/data/whatsapp/session'))" "$PLAN")"
 WHATSAPP_ALLOWED_USERS_SECRET="$(python3 -c "import json,sys;print(json.load(open(sys.argv[1])).get('whatsapp',{}).get('allowed_users_secret', ''))" "$PLAN")"
+WHATSAPP_ACCOUNT_PHONE="$(python3 -c "import json,sys;print(json.load(open(sys.argv[1])).get('whatsapp',{}).get('account_phone', ''))" "$PLAN")"
 WHATSAPP_DM_POLICY="$(python3 -c "import json,sys;print(json.load(open(sys.argv[1])).get('whatsapp',{}).get('dm_policy', 'open'))" "$PLAN")"
 WHATSAPP_GROUP_POLICY="$(python3 -c "import json,sys;print(json.load(open(sys.argv[1])).get('whatsapp',{}).get('group_policy', 'open'))" "$PLAN")"
 
@@ -222,6 +223,7 @@ SQL
   {
     printf 'DATABASE_URL=%s\n' "$database_url"
     printf 'HERMES_TENANT_NAME=%s\n' "$TENANT_NAME"
+    [[ -n "$WHATSAPP_ACCOUNT_PHONE" ]] && printf 'WHATSAPP_ACCOUNT_PHONE=%s\n' "$WHATSAPP_ACCOUNT_PHONE"
     python3 - "$PLAN" "$db_slug" <<'PY'
 import json, sys
 plan = json.load(open(sys.argv[1]))
@@ -298,6 +300,7 @@ fi
   if [[ "$WHATSAPP_ENABLED" == "true" ]]; then
     printf 'WHATSAPP_ENABLED=true\n'
     printf 'WHATSAPP_MODE=%s\n' "$WHATSAPP_MODE_VALUE"
+    [[ -n "$WHATSAPP_ACCOUNT_PHONE" ]] && printf 'WHATSAPP_ACCOUNT_PHONE=%s\n' "$WHATSAPP_ACCOUNT_PHONE"
     printf 'HERMES_GATEWAY_PLATFORM_CONNECT_TIMEOUT=120\n'
     if [[ "$WHATSAPP_DM_POLICY" == "allowlist" ]]; then
       printf 'WHATSAPP_ALLOWED_USERS=%s\n' "$whatsapp_allowed_users"
