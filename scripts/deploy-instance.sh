@@ -206,6 +206,9 @@ SELECT format('REVOKE CONNECT ON DATABASE %I FROM PUBLIC', :'db_name') \gexec
 SELECT format('GRANT CONNECT ON DATABASE %I TO %I', :'db_name', :'role_name') \gexec
 SQL
 
+  # Pre-create vector extension as superuser since migrations run as non-superuser
+  docker exec -i "$POSTGRES_CONTAINER" psql -U postgres -d "$database" -c "CREATE EXTENSION IF NOT EXISTS vector;"
+
   # Clona o produto (read-only do repo local de homolog) e fixa a ref.
   target="$DATA_DIR/product-src/$db_slug"
   [[ -d "$target/.git" ]] || git clone --quiet "$source_dir" "$target"
