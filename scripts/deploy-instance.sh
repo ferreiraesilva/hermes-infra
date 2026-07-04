@@ -370,15 +370,15 @@ if [[ -n "$TELEGRAM_UNAUTHORIZED_DM_MESSAGE" ]]; then
   hermes_one_shot config set platforms.telegram.extra.unauthorized_dm_message "$TELEGRAM_UNAUTHORIZED_DM_MESSAGE"
 fi
 
-# --- Hermes Agent overlay: caption nativa exclusivamente para videos --------
+# --- Hermes Agent overlay: caption nativa para videos e imagens -------------
 # Parte sempre da imagem pinada e reaplica um patch versionado. Se a imagem
 # mudar e os anchors deixarem de casar, o deploy falha antes de reiniciar o
 # gateway, evitando drift ou edicao manual dentro do container.
 HERMES_AGENT_OVERLAY="$DATA_DIR/runtime/hermes-agent-overlay"
-HERMES_VIDEO_CAPTION_PATCH="$ROOT/patches/hermes-agent/video-caption.patch"
+HERMES_MEDIA_CAPTION_PATCH="$ROOT/patches/hermes-agent/media-caption.patch"
 HERMES_ACCESS_CONTROL_PATCH="$ROOT/patches/hermes-agent/access-control.patch"
-[[ -f "$HERMES_VIDEO_CAPTION_PATCH" ]] || {
-  echo "patch de caption de video ausente: $HERMES_VIDEO_CAPTION_PATCH" >&2
+[[ -f "$HERMES_MEDIA_CAPTION_PATCH" ]] || {
+  echo "patch de caption de midia ausente: $HERMES_MEDIA_CAPTION_PATCH" >&2
   exit 1
 }
 [[ -f "$HERMES_ACCESS_CONTROL_PATCH" ]] || {
@@ -393,8 +393,8 @@ docker run --rm \
 chmod -R u+w "$HERMES_AGENT_OVERLAY"
 (
   cd "$HERMES_AGENT_OVERLAY"
-  git apply --check "$HERMES_VIDEO_CAPTION_PATCH"
-  git apply "$HERMES_VIDEO_CAPTION_PATCH"
+  git apply --check "$HERMES_MEDIA_CAPTION_PATCH"
+  git apply "$HERMES_MEDIA_CAPTION_PATCH"
   git apply --check "$HERMES_ACCESS_CONTROL_PATCH"
   git apply "$HERMES_ACCESS_CONTROL_PATCH"
   python3 -m py_compile gateway/platforms/base.py gateway/pairing.py gateway/run.py gateway/stream_consumer.py
