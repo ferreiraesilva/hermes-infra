@@ -14,14 +14,6 @@
     "HERMES_SEND_CMD": "hermes send",
     "MINHAINCORP_SCHEMA": "minhaincorp",
     "MINHAINCORP_MODE": "telegram_test",
-    "MINHAINCORP_TG_TEST_PHONE": "5562993119454",
-    "MINHAINCORP_TELEGRAM_NATIVE_MEDIA": "true"
-  },
-  "display": {
-    "platforms": {
-      "telegram": {
-        "streaming": false
-      }
-    }
+    "MINHAINCORP_TG_TEST_PHONE": "5562993119454"
   }
 }

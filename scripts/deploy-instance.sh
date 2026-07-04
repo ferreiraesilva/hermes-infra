@@ -343,9 +343,6 @@ for platform, settings in platforms.items():
     tool_progress = settings.get("tool_progress")
     if tool_progress is not None:
         print(f"display.platforms.{platform}.tool_progress\t{tool_progress}")
-    streaming = settings.get("streaming")
-    if streaming is not None:
-        print(f"display.platforms.{platform}.streaming\t{str(streaming).lower()}")
 PY
 }
 

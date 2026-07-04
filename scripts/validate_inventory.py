@@ -215,15 +215,12 @@ def main() -> int:
                                 if not isinstance(platform_display, dict):
                                     errors.append(f"{client_id}/{env_id}/{profile_id}: display.platforms.{platform_id} deve ser objeto")
                                     continue
-                                unknown = set(platform_display) - {"tool_progress", "streaming"}
+                                unknown = set(platform_display) - {"tool_progress"}
                                 if unknown:
                                     errors.append(f"{client_id}/{env_id}/{profile_id}: display.platforms.{platform_id} tem chaves nao suportadas: {sorted(unknown)}")
                                 tool_progress = platform_display.get("tool_progress")
                                 if tool_progress is not None and tool_progress not in {"off", "new", "all", "verbose"}:
                                     errors.append(f"{client_id}/{env_id}/{profile_id}: display.platforms.{platform_id}.tool_progress deve ser off, new, all ou verbose")
-                                streaming = platform_display.get("streaming")
-                                if streaming is not None and not isinstance(streaming, bool):
-                                    errors.append(f"{client_id}/{env_id}/{profile_id}: display.platforms.{platform_id}.streaming deve ser booleano")
 
                 # Container único por profile; bancos/roles por produto x cliente.
                 container = f"hermes-{client_id}-{profile_id}-{env_id}"
