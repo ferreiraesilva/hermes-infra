@@ -78,6 +78,29 @@ def db_for(product: dict, client_id: str, env_override: dict | None = None) -> d
         "env": env,
     }
 
+def display_for(profile: dict, catalog: dict[str, dict]) -> dict:
+    """Combina defaults dos produtos; o profile pode sobrescrever por plataforma."""
+    platforms: dict[str, dict] = {}
+    for product_id in profile["products"]:
+        product_display = catalog[product_id].get("display", {})
+        for platform, settings in product_display.get("platforms", {}).items():
+            current = platforms.setdefault(platform, {})
+            for key, value in settings.items():
+                if key in current and current[key] != value:
+                    raise ValueError(
+                        f"produtos do profile conflitam em display.platforms.{platform}.{key}"
+                    )
+                current[key] = value
+
+    profile_display = profile.get("display", {})
+    for platform, settings in profile_display.get("platforms", {}).items():
+        platforms.setdefault(platform, {}).update(settings)
+
+    if not platforms:
+        return {}
+    return {"platforms": platforms}
+
+
 def plan(env_id: str, client_id: str, profile_id: str) -> dict:
     client, profile = find_profile(env_id, client_id, profile_id)
     env = environment(env_id)
@@ -116,7 +139,7 @@ def plan(env_id: str, client_id: str, profile_id: str) -> dict:
         "telegram": profile.get("telegram", {}),
         "dashboard": profile.get("dashboard", {"enabled": False}),
         "whatsapp": profile.get("whatsapp", {"enabled": False}),
-        "display": profile.get("display", {}),
+        "display": display_for(profile, catalog),
         "databases": databases,
         "plugins": [s["plugin"] for s in plugin_sources],
         "plugin_sources": plugin_sources,
