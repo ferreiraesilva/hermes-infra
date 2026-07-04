@@ -1,5 +1,25 @@
+diff --git a/gateway/pairing.py b/gateway/pairing.py
+index 278823d6e..ebd34622a 100644
+--- a/gateway/pairing.py
++++ b/gateway/pairing.py
+@@ -288,6 +288,15 @@ class PairingStore:
+         # visible source of truth. No-op on open gateways.
+         _sync_allowlist_add(platform, normalized_user_id)
+ 
++    def approve_user(self, platform: str, user_id: str, user_name: str = "") -> None:
++        """Approve a known platform user ID without issuing a pairing code."""
++        normalized_platform = str(platform or "").lower().strip()
++        normalized_user_id = self._normalize_user_id(normalized_platform, user_id)
++        if not normalized_platform or not normalized_user_id:
++            raise ValueError("platform and user_id are required")
++        with self._lock:
++            self._approve_user(normalized_platform, normalized_user_id, user_name)
++
+     def revoke(self, platform: str, user_id: str) -> bool:
+         """Remove a user from the approved list. Returns True if found."""
+         path = self._approved_path(platform)
 diff --git a/gateway/platforms/base.py b/gateway/platforms/base.py
-index 1025964dc..1031f1c22 100644
+index 1025964dc..f054bfae1 100644
 --- a/gateway/platforms/base.py
 +++ b/gateway/platforms/base.py
 @@ -8,6 +8,7 @@ and implement the required methods.
@@ -21,9 +41,9 @@ index 1025964dc..1031f1c22 100644
 +#   MEDIA_CAPTION:{"path":"/tmp/tour.mp4","caption":"Tour do decorado.","type":"video"}
 +#   MEDIA_CAPTION:{"path":"/tmp/planta.jpg","caption":"Planta do 2 quartos.","type":"image"}
 +MEDIA_CAPTION_RE = re.compile(
-+    r'^[ \t]*MEDIA_CAPTION:\s*'
-+    r'(?P<payload>\{(?=[^\n]*"type"\s*:\s*"(?:video|image)")[^\n]*\})[ \t]*$',
-+    re.MULTILINE,
++    r'MEDIA_CAPTION:\s*'
++    r'(?P<payload>\{[^}]*?"type"\s*:\s*"(?:video|image)"[^}]*\})',
++    re.IGNORECASE,
 +)
 +
  
@@ -186,10 +206,81 @@ index 1025964dc..1031f1c22 100644
                  if not _anything_delivered and _response_pre_extract.strip():
                      logger.error(
 diff --git a/gateway/run.py b/gateway/run.py
-index b08650d08..0dec38b42 100644
+index b08650d08..52fa02c9f 100644
 --- a/gateway/run.py
 +++ b/gateway/run.py
-@@ -12667,6 +12667,7 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
+@@ -8660,6 +8660,70 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
+                 return None
+         elif not self._is_user_authorized(source):
+             logger.warning("Unauthorized user: %s (%s) on %s", source.user_id, source.user_name, source.platform.value)
++            if source.chat_type == "dm":
++                adapter = self.adapters.get(source.platform)
++                if adapter:
++                    import os
++                    import re
++                    hermes_home = os.environ.get("HERMES_HOME", "/opt/data")
++                    soul_path = os.path.join(hermes_home, "SOUL.md")
++                    identity = "Hermes Agent"
++                    if os.path.exists(soul_path):
++                        try:
++                            with open(soul_path, "r", encoding="utf-8") as f:
++                                content = f.read().strip()
++                            if content:
++                                first_line = ""
++                                for line in content.splitlines():
++                                    line = line.strip()
++                                    if line and not line.startswith("#"):
++                                        first_line = line
++                                        break
++                                if not first_line:
++                                    for line in content.splitlines():
++                                        line = line.strip()
++                                        if line:
++                                            first_line = line.lstrip("#").strip()
++                                            break
++                                if first_line:
++                                    first_line = first_line.replace("**", "").replace("*", "")
++                                    sentences = re.split(r'(?<=[.!?])\s+', first_line)
++                                    if sentences:
++                                        first_sentence = sentences[0].strip()
++                                        lower_s = first_sentence.lower()
++                                        if lower_s.startswith("você é o "):
++                                            identity = "Eu sou o " + first_sentence[9:]
++                                        elif lower_s.startswith("você é "):
++                                            identity = "Eu sou " + first_sentence[7:]
++                                        elif lower_s.startswith("você se chama "):
++                                            identity = "Eu me chamo " + first_sentence[14:]
++                                        elif lower_s.startswith("you are the "):
++                                            identity = "I am the " + first_sentence[12:]
++                                        elif lower_s.startswith("you are "):
++                                            identity = "I am " + first_sentence[8:]
++                                        else:
++                                            identity = first_sentence
++                        except Exception:
++                            pass
++
++                    tenant_name = os.environ.get("HERMES_TENANT_NAME") or "EBM"
++                    is_pt = any(w in identity.lower() for w in ["eu sou", "assistente", "gerente", "vendas", "você", "chamo", "agente", "incorporadora"])
++                    if is_pt:
++                        unauthorized_message = (
++                            f"Olá! {identity}\n\n"
++                            f"Este bot é de uso restrito de {tenant_name}.\n\n"
++                            f"Para liberar o seu acesso, por favor, envie o seguinte código ao proprietário do bot:\n"
++                            f"`{source.user_id}`"
++                        )
++                    else:
++                        unauthorized_message = (
++                            f"Hello! {identity}\n\n"
++                            f"This bot is restricted to {tenant_name}.\n\n"
++                            f"To get authorized, please send the following code to the bot owner:\n"
++                            f"`{source.user_id}`"
++                        )
++                    await adapter.send(source.chat_id, unauthorized_message)
++                return None
+             # In DMs: offer pairing code. In groups: silently ignore.
+             if (
+                 source.chat_type == "dm"
+@@ -12667,6 +12731,7 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
  
              from gateway.platforms.base import BasePlatformAdapter, should_send_media_as_audio
  
@@ -197,7 +288,7 @@ index b08650d08..0dec38b42 100644
              media_files, cleaned = adapter.extract_media(response)
              media_files = BasePlatformAdapter.filter_media_delivery_paths(media_files)
              # Chain the cleaned text through each extractor (extract_media →
-@@ -12879,6 +12880,7 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
+@@ -12879,6 +12944,7 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
  
              # Extract media files from the response
              if response:
