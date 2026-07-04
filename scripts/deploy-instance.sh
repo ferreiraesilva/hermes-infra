@@ -57,7 +57,7 @@ fi
 
 # Caminho do binário hermes DENTRO do container (não está no PATH).
 HERMES_BIN="${HERMES_BIN:-/opt/hermes/.venv/bin/hermes}"
-HERMES_IMAGE_DEFAULT="nousresearch/hermes-agent@sha256:4b50f1201f280e28887f6a2d7bbcd50fe370e0da3e92417d6e51778b485cf18e"
+HERMES_IMAGE_DEFAULT="nousresearch/hermes-agent:main"
 HERMES_IMAGE="${HERMES_IMAGE:-$HERMES_IMAGE_DEFAULT}"
 
 python3 "$ROOT/scripts/validate_inventory.py"
