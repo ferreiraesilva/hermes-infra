@@ -1,25 +1,5 @@
-diff --git a/gateway/pairing.py b/gateway/pairing.py
-index 278823d6e..ebd34622a 100644
---- a/gateway/pairing.py
-+++ b/gateway/pairing.py
-@@ -288,6 +288,15 @@ class PairingStore:
-         # visible source of truth. No-op on open gateways.
-         _sync_allowlist_add(platform, normalized_user_id)
- 
-+    def approve_user(self, platform: str, user_id: str, user_name: str = "") -> None:
-+        """Approve a known platform user ID without issuing a pairing code."""
-+        normalized_platform = str(platform or "").lower().strip()
-+        normalized_user_id = self._normalize_user_id(normalized_platform, user_id)
-+        if not normalized_platform or not normalized_user_id:
-+            raise ValueError("platform and user_id are required")
-+        with self._lock:
-+            self._approve_user(normalized_platform, normalized_user_id, user_name)
-+
-     def revoke(self, platform: str, user_id: str) -> bool:
-         """Remove a user from the approved list. Returns True if found."""
-         path = self._approved_path(platform)
 diff --git a/gateway/platforms/base.py b/gateway/platforms/base.py
-index 1025964dc..f054bfae1 100644
+index 1025964dc..67e5487b3 100644
 --- a/gateway/platforms/base.py
 +++ b/gateway/platforms/base.py
 @@ -8,6 +8,7 @@ and implement the required methods.
@@ -49,7 +29,7 @@ index 1025964dc..f054bfae1 100644
  
  def _normalize_media_tag_path(raw: str) -> str:
      path = str(raw or "").strip()
-@@ -3686,14 +3699,87 @@ class BasePlatformAdapter(ABC):
+@@ -3686,14 +3699,88 @@ class BasePlatformAdapter(ABC):
          """
          if (
              "MEDIA:" not in text
@@ -60,6 +40,7 @@ index 1025964dc..f054bfae1 100644
              return text
          cleaned = _strip_media_tag_directives(text)
 +        cleaned = MEDIA_CAPTION_RE.sub("", cleaned)
++        cleaned = re.sub(r'[ \t]+$', '', cleaned, flags=re.MULTILINE)
          cleaned = re.sub(r'\n{3,}', '\n\n', cleaned)
          return cleaned.rstrip()
  
@@ -137,7 +118,7 @@ index 1025964dc..f054bfae1 100644
      @staticmethod
      def extract_local_files(content: str) -> Tuple[List[str], str]:
          """
-@@ -4900,6 +4986,10 @@ class BasePlatformAdapter(ABC):
+@@ -4900,6 +4987,10 @@ class BasePlatformAdapter(ABC):
                  # Pre-extract snapshot for the #29346 recovery/invariant below.
                  _response_pre_extract = response
  
@@ -148,7 +129,7 @@ index 1025964dc..f054bfae1 100644
                  # Extract MEDIA:<path> tags (from TTS tool) before other processing
                  media_files, response = self.extract_media(response)
                  media_files = self.filter_media_delivery_paths(media_files)
-@@ -4929,7 +5019,7 @@ class BasePlatformAdapter(ABC):
+@@ -4929,7 +5020,7 @@ class BasePlatformAdapter(ABC):
                  # empty text with no attachment, and the `if text_content` guard
                  # below then drops it silently. Recover on every platform (#33842
                  # was Discord-only); the guard avoids duplicating an attachment.
@@ -157,7 +138,7 @@ index 1025964dc..f054bfae1 100644
                      # Recover from the post-extract_media `response`, not the raw
                      # snapshot: extract_media already stripped MEDIA (incl. spaced
                      # paths) with its full grammar, so no fragment can leak.
-@@ -5134,11 +5224,46 @@ class BasePlatformAdapter(ABC):
+@@ -5134,11 +5225,46 @@ class BasePlatformAdapter(ABC):
                      except Exception as file_err:
                          logger.error("[%s] Error sending local file %s: %s", self.name, file_path, file_err)
  
@@ -206,81 +187,10 @@ index 1025964dc..f054bfae1 100644
                  if not _anything_delivered and _response_pre_extract.strip():
                      logger.error(
 diff --git a/gateway/run.py b/gateway/run.py
-index b08650d08..52fa02c9f 100644
+index b08650d08..7071f6989 100644
 --- a/gateway/run.py
 +++ b/gateway/run.py
-@@ -8660,6 +8660,70 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
-                 return None
-         elif not self._is_user_authorized(source):
-             logger.warning("Unauthorized user: %s (%s) on %s", source.user_id, source.user_name, source.platform.value)
-+            if source.chat_type == "dm":
-+                adapter = self.adapters.get(source.platform)
-+                if adapter:
-+                    import os
-+                    import re
-+                    hermes_home = os.environ.get("HERMES_HOME", "/opt/data")
-+                    soul_path = os.path.join(hermes_home, "SOUL.md")
-+                    identity = "Hermes Agent"
-+                    if os.path.exists(soul_path):
-+                        try:
-+                            with open(soul_path, "r", encoding="utf-8") as f:
-+                                content = f.read().strip()
-+                            if content:
-+                                first_line = ""
-+                                for line in content.splitlines():
-+                                    line = line.strip()
-+                                    if line and not line.startswith("#"):
-+                                        first_line = line
-+                                        break
-+                                if not first_line:
-+                                    for line in content.splitlines():
-+                                        line = line.strip()
-+                                        if line:
-+                                            first_line = line.lstrip("#").strip()
-+                                            break
-+                                if first_line:
-+                                    first_line = first_line.replace("**", "").replace("*", "")
-+                                    sentences = re.split(r'(?<=[.!?])\s+', first_line)
-+                                    if sentences:
-+                                        first_sentence = sentences[0].strip()
-+                                        lower_s = first_sentence.lower()
-+                                        if lower_s.startswith("você é o "):
-+                                            identity = "Eu sou o " + first_sentence[9:]
-+                                        elif lower_s.startswith("você é "):
-+                                            identity = "Eu sou " + first_sentence[7:]
-+                                        elif lower_s.startswith("você se chama "):
-+                                            identity = "Eu me chamo " + first_sentence[14:]
-+                                        elif lower_s.startswith("you are the "):
-+                                            identity = "I am the " + first_sentence[12:]
-+                                        elif lower_s.startswith("you are "):
-+                                            identity = "I am " + first_sentence[8:]
-+                                        else:
-+                                            identity = first_sentence
-+                        except Exception:
-+                            pass
-+
-+                    tenant_name = os.environ.get("HERMES_TENANT_NAME") or "EBM"
-+                    is_pt = any(w in identity.lower() for w in ["eu sou", "assistente", "gerente", "vendas", "você", "chamo", "agente", "incorporadora"])
-+                    if is_pt:
-+                        unauthorized_message = (
-+                            f"Olá! {identity}\n\n"
-+                            f"Este bot é de uso restrito de {tenant_name}.\n\n"
-+                            f"Para liberar o seu acesso, por favor, envie o seguinte código ao proprietário do bot:\n"
-+                            f"`{source.user_id}`"
-+                        )
-+                    else:
-+                        unauthorized_message = (
-+                            f"Hello! {identity}\n\n"
-+                            f"This bot is restricted to {tenant_name}.\n\n"
-+                            f"To get authorized, please send the following code to the bot owner:\n"
-+                            f"`{source.user_id}`"
-+                        )
-+                    await adapter.send(source.chat_id, unauthorized_message)
-+                return None
-             # In DMs: offer pairing code. In groups: silently ignore.
-             if (
-                 source.chat_type == "dm"
-@@ -12667,6 +12731,7 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
+@@ -12667,6 +12667,7 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
  
              from gateway.platforms.base import BasePlatformAdapter, should_send_media_as_audio
  
@@ -288,23 +198,69 @@ index b08650d08..52fa02c9f 100644
              media_files, cleaned = adapter.extract_media(response)
              media_files = BasePlatformAdapter.filter_media_delivery_paths(media_files)
              # Chain the cleaned text through each extractor (extract_media →
-@@ -12879,6 +12944,7 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
+@@ -12682,6 +12683,37 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
  
-             # Extract media files from the response
-             if response:
-+                captioned_media, response = adapter.extract_captioned_media(response)
-                 media_files, response = adapter.extract_media(response)
-                 from gateway.platforms.base import BasePlatformAdapter
-                 media_files = BasePlatformAdapter.filter_media_delivery_paths(media_files)
-diff --git a/gateway/stream_consumer.py b/gateway/stream_consumer.py
-index a08e169f2..2023641fb 100644
---- a/gateway/stream_consumer.py
-+++ b/gateway/stream_consumer.py
-@@ -26,6 +26,7 @@ from typing import Any, Callable, Optional
+             _thread_meta = self._thread_metadata_for_source(event.source, self._reply_anchor_for_event(event))
  
- from gateway.platforms.base import BasePlatformAdapter as _BasePlatformAdapter
- from gateway.platforms.base import _custom_unit_to_cp
-+from gateway.platforms.base import MEDIA_CAPTION_RE
- from gateway.platforms.base import MEDIA_TAG_CLEANUP_RE
- from gateway.config import (
-     DEFAULT_STREAMING_EDIT_INTERVAL as _DEFAULT_STREAMING_EDIT_INTERVAL,
++            # Captioned media ride the native adapter methods so the caption
++            # stays attached to the media bubble itself. Preserves item order.
++            for item in captioned_media:
++                try:
++                    if item.get("type") == "image":
++                        result = await adapter.send_image_file(
++                            chat_id=event.source.chat_id,
++                            image_path=item["path"],
++                            caption=item.get("caption"),
++                            metadata=_thread_meta,
++                        )
++                    else:
++                        result = await adapter.send_video(
++                            chat_id=event.source.chat_id,
++                            video_path=item["path"],
++                            caption=item.get("caption"),
++                            metadata=_thread_meta,
++                        )
++                    if not getattr(result, "success", False):
++                        logger.warning(
++                            "[%s] Post-stream captioned media delivery failed: %s",
++                            adapter.name,
++                            getattr(result, "error", None),
++                        )
++                except Exception as e:
++                    logger.warning(
++                        "[%s] Post-stream captioned media delivery failed: %s",
++                        adapter.name,
++                        e,
++                    )
++
+             _VIDEO_EXTS = {'.mp4', '.mov', '.avi', '.mkv', '.webm', '.3gp'}
+             _IMAGE_EXTS = {'.jpg', '.jpeg', '.png', '.webp', '.gif'}
+ 
+@@ -19312,13 +19344,25 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
+             elif not _is_empty_sentinel and _transformed and _sc is not None:
+                 # Plugin hooks transformed the response after streaming — edit the
+                 # existing streamed message instead of sending a duplicate.
++                # Strip media directives (MEDIA:/MEDIA_CAPTION:) before editing:
++                # the edit is display-only, and the media itself is delivered by
++                # _deliver_media_from_response right after (already_sent path).
++                from gateway.platforms.base import BasePlatformAdapter as _BPA_edit
++                _display_final = _BPA_edit.strip_media_directives_for_display(
++                    response["final_response"]
++                )
+                 _sc_msg_id = _sc.message_id
+-                if _sc_msg_id:
++                if _sc_msg_id and not _display_final.strip():
++                    # Transformed response is pure media directives — nothing
++                    # textual to edit in; keep the streamed text and let the
++                    # media delivery below handle the attachments.
++                    response["already_sent"] = True
++                elif _sc_msg_id:
+                     try:
+                         await _sc.adapter.edit_message(
+                             chat_id=source.chat_id,
+                             message_id=_sc_msg_id,
+-                            content=response["final_response"],
++                            content=_display_final,
+                             finalize=True,
+                         )
+                         response["already_sent"] = True
