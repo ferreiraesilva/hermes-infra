@@ -397,9 +397,16 @@ docker run --rm \
   -c "rm -rf /runtime/hermes-agent-overlay && mkdir -p /runtime/hermes-agent-overlay/gateway/platforms && cp /opt/hermes/gateway/platforms/base.py /runtime/hermes-agent-overlay/gateway/platforms/base.py && cp /opt/hermes/gateway/pairing.py /runtime/hermes-agent-overlay/gateway/pairing.py && cp /opt/hermes/gateway/run.py /runtime/hermes-agent-overlay/gateway/run.py && cp /opt/hermes/gateway/stream_consumer.py /runtime/hermes-agent-overlay/gateway/stream_consumer.py && chown -R $(id -u):$(id -g) /runtime/hermes-agent-overlay"
 chmod -R u+w "$HERMES_AGENT_OVERLAY"
 (
-  python3 "$ROOT/scripts/apply-patches.py" "$HERMES_MEDIA_CAPTION_PATCH" "$HERMES_AGENT_OVERLAY" || exit 1
-  python3 "$ROOT/scripts/apply-patches.py" "$HERMES_ACCESS_CONTROL_PATCH" "$HERMES_AGENT_OVERLAY" || exit 1
   cd "$HERMES_AGENT_OVERLAY"
+  # patch(1) com fuzz tolera offsets de linha quando a imagem :main está em um
+  # commit diferente do que gerou o diff; git apply não tem fuzz e falharia.
+  patch -p1 -N -F3 < "$HERMES_MEDIA_CAPTION_PATCH"
+  patch -p1 -N -F3 < "$HERMES_ACCESS_CONTROL_PATCH"
+  # Verificação explícita: o deploy deve falhar alto se o código esperado não
+  # estiver presente após o apply (protege contra apply parcial/silencioso).
+  grep -q "MEDIA_CAPTION_RE" gateway/platforms/base.py || { echo "ERRO: media-caption.patch não aplicado em base.py" >&2; exit 1; }
+  grep -q "extract_captioned_media" gateway/run.py || { echo "ERRO: media-caption.patch não aplicado em run.py" >&2; exit 1; }
+  grep -q "MEDIA_CAPTION" gateway/stream_consumer.py || { echo "ERRO: media-caption.patch não aplicado em stream_consumer.py" >&2; exit 1; }
   python3 -m py_compile gateway/platforms/base.py gateway/pairing.py gateway/run.py gateway/stream_consumer.py
 )
 
