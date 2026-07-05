@@ -117,9 +117,18 @@ WHATSAPP_CIRCUIT_COOLDOWN_MS="$(python3 -c "import json,sys;print(json.load(open
 
 mkdir -p "$RUNTIME_ROOT"
 IMAGE_ENV="$RUNTIME_ROOT/hermes-image.env"
-if [[ -f "$IMAGE_ENV" ]]; then
-  set -a; source "$IMAGE_ENV"; set +a
-  HERMES_IMAGE="${HERMES_IMAGE:-$HERMES_IMAGE_DEFAULT}"
+if [[ "$ENVIRONMENT" == "prd" ]]; then
+  # Produção usa a imagem pinada por update-hermes-image.sh.
+  if [[ -f "$IMAGE_ENV" ]]; then
+    set -a; source "$IMAGE_ENV"; set +a
+    HERMES_IMAGE="${HERMES_IMAGE:-$HERMES_IMAGE_DEFAULT}"
+  fi
+else
+  # Homologação acompanha a main continuamente: ignora o pin do hermes-image.env
+  # e re-puxa a tag :main (retagueada a cada push no upstream) em todo deploy.
+  HERMES_IMAGE="$HERMES_IMAGE_DEFAULT"
+  echo "hml: usando $HERMES_IMAGE (pin de $IMAGE_ENV ignorado)"
+  docker pull "$HERMES_IMAGE"
 fi
 
 # PRD nunca roda SQL sem aprovação explícita (até o GitOps do prompt-2 existir).
