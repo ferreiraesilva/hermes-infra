@@ -89,6 +89,11 @@ def plan(env_id: str, client_id: str, profile_id: str) -> dict:
         db_for(catalog[pid], client_id, product_env.get(pid, {}))
         for pid in profile["products"]
     ]
+    inference_configs = [catalog[pid].get("inference", {}) for pid in profile["products"] if catalog[pid].get("inference")]
+    if len({json.dumps(item, sort_keys=True) for item in inference_configs}) > 1:
+        raise ValueError("produtos do mesmo profile possuem defaults de inferência incompatíveis")
+    inference = inference_configs[0] if inference_configs else {}
+
     plugin_sources = [
         {"plugin": catalog[pid]["plugin_name"], "db_slug": catalog[pid]["db_slug"],
          "soul": catalog[pid].get("soul", "")}
@@ -117,6 +122,7 @@ def plan(env_id: str, client_id: str, profile_id: str) -> dict:
         "dashboard": profile.get("dashboard", {"enabled": False}),
         "whatsapp": profile.get("whatsapp", {"enabled": False}),
         "display": profile.get("display", {}),
+        "inference": inference,
         "databases": databases,
         "plugins": [s["plugin"] for s in plugin_sources],
         "plugin_sources": plugin_sources,

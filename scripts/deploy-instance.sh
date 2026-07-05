@@ -144,7 +144,17 @@ CLIENT_ENV="$SECRETS_ROOT/$ENVIRONMENT/$CLIENT.env"
 AUTH_SRC="$SECRETS_ROOT/$ENVIRONMENT/auth.json"   # auth de LLM compartilhada (opcional)
 [[ -f "$COMMON_ENV" ]] || { echo "secret comum ausente: $COMMON_ENV" >&2; exit 1; }
 [[ -f "$CLIENT_ENV" ]] || { echo "secret do cliente ausente: $CLIENT_ENV" >&2; exit 1; }
-set -a; source "$COMMON_ENV"; source "$CLIENT_ENV"; set +a
+set -a
+source "$COMMON_ENV"
+# Default do produto; o secret específico do cliente carregado depois pode sobrescrever.
+product_inference_provider="$(python3 -c "import json,sys;print(json.load(open(sys.argv[1])).get('inference',{}).get('provider',''))" "$PLAN")"
+product_inference_model="$(python3 -c "import json,sys;print(json.load(open(sys.argv[1])).get('inference',{}).get('model',''))" "$PLAN")"
+product_inference_base_url="$(python3 -c "import json,sys;print(json.load(open(sys.argv[1])).get('inference',{}).get('base_url',''))" "$PLAN")"
+[[ -n "$product_inference_provider" ]] && HERMES_INFERENCE_PROVIDER="$product_inference_provider"
+[[ -n "$product_inference_model" ]] && HERMES_INFERENCE_MODEL="$product_inference_model"
+[[ -n "$product_inference_base_url" ]] && HERMES_INFERENCE_BASE_URL="$product_inference_base_url"
+source "$CLIENT_ENV"
+set +a
 
 token="${!TELEGRAM_SECRET:-}"
 [[ -n "$token" ]] || { echo "token ausente: defina $TELEGRAM_SECRET em $CLIENT_ENV" >&2; exit 1; }

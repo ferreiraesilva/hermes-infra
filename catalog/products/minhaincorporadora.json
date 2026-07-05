@@ -15,5 +15,10 @@
     "MINHAINCORP_SCHEMA": "minhaincorp",
     "MINHAINCORP_MODE": "telegram_test",
     "MINHAINCORP_TG_TEST_PHONE": "5562993119454"
+  },
+  "inference": {
+    "provider": "openrouter",
+    "model": "minimax/minimax-m3",
+    "base_url": "https://openrouter.ai/api/v1"
   }
 }
