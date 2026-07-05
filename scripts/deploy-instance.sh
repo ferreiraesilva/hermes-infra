@@ -298,6 +298,11 @@ fi
 # --- .env do container (home default): credenciais LLM + token do bot --------
 {
   cat "$COMMON_ENV"
+  # Valores efetivos podem ser sobrescritos pelo secret do cliente.
+  [[ -n "${HERMES_INFERENCE_PROVIDER:-}" ]] && printf 'HERMES_INFERENCE_PROVIDER=%s\n' "$HERMES_INFERENCE_PROVIDER"
+  [[ -n "${HERMES_INFERENCE_MODEL:-}" ]] && printf 'HERMES_INFERENCE_MODEL=%s\n' "$HERMES_INFERENCE_MODEL"
+  [[ -n "${HERMES_INFERENCE_BASE_URL:-}" ]] && printf 'HERMES_INFERENCE_BASE_URL=%s\n' "$HERMES_INFERENCE_BASE_URL"
+  [[ -n "${OPENROUTER_API_KEY:-}" ]] && printf 'OPENROUTER_API_KEY=%s\n' "$OPENROUTER_API_KEY"
   printf 'TELEGRAM_BOT_TOKEN=%s\n' "$token"
   printf 'HERMES_TENANT_NAME=%s\n' "$TENANT_NAME"
   [[ -n "${TELEGRAM_ALLOWED_USERS:-}" ]] && printf 'TELEGRAM_ALLOWED_USERS=%s\n' "$TELEGRAM_ALLOWED_USERS"
@@ -393,10 +398,10 @@ docker run --rm \
 chmod -R u+w "$HERMES_AGENT_OVERLAY"
 (
   cd "$HERMES_AGENT_OVERLAY"
-  git apply --check "$HERMES_MEDIA_CAPTION_PATCH"
-  git apply "$HERMES_MEDIA_CAPTION_PATCH"
-  git apply --check "$HERMES_ACCESS_CONTROL_PATCH"
-  git apply "$HERMES_ACCESS_CONTROL_PATCH"
+  git apply --check --fuzz=5 "$HERMES_MEDIA_CAPTION_PATCH"
+  git apply --fuzz=5 "$HERMES_MEDIA_CAPTION_PATCH"
+  git apply --check --fuzz=5 "$HERMES_ACCESS_CONTROL_PATCH"
+  git apply --fuzz=5 "$HERMES_ACCESS_CONTROL_PATCH"
   python3 -m py_compile gateway/platforms/base.py gateway/pairing.py gateway/run.py gateway/stream_consumer.py
 )
 
