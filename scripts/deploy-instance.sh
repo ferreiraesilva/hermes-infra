@@ -397,11 +397,9 @@ docker run --rm \
   -c "rm -rf /runtime/hermes-agent-overlay && mkdir -p /runtime/hermes-agent-overlay/gateway/platforms && cp /opt/hermes/gateway/platforms/base.py /runtime/hermes-agent-overlay/gateway/platforms/base.py && cp /opt/hermes/gateway/pairing.py /runtime/hermes-agent-overlay/gateway/pairing.py && cp /opt/hermes/gateway/run.py /runtime/hermes-agent-overlay/gateway/run.py && cp /opt/hermes/gateway/stream_consumer.py /runtime/hermes-agent-overlay/gateway/stream_consumer.py && chown -R $(id -u):$(id -g) /runtime/hermes-agent-overlay"
 chmod -R u+w "$HERMES_AGENT_OVERLAY"
 (
+  python3 "$ROOT/scripts/apply-patches.py" "$HERMES_MEDIA_CAPTION_PATCH" "$HERMES_AGENT_OVERLAY" || exit 1
+  python3 "$ROOT/scripts/apply-patches.py" "$HERMES_ACCESS_CONTROL_PATCH" "$HERMES_AGENT_OVERLAY" || exit 1
   cd "$HERMES_AGENT_OVERLAY"
-  git apply --check -C5 "$HERMES_MEDIA_CAPTION_PATCH"
-  git apply -C5 "$HERMES_MEDIA_CAPTION_PATCH"
-  git apply --check -C5 "$HERMES_ACCESS_CONTROL_PATCH"
-  git apply -C5 "$HERMES_ACCESS_CONTROL_PATCH"
   python3 -m py_compile gateway/platforms/base.py gateway/pairing.py gateway/run.py gateway/stream_consumer.py
 )
 
