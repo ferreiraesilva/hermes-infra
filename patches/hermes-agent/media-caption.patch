@@ -1,3 +1,167 @@
+From 606775e118ff14767db4ca306036ebbf9857c6bc Mon Sep 17 00:00:00 2001
+From: ferreiraesilva <ferreiraesilva@hotmail.com>
+Date: Sat, 4 Jul 2026 21:20:52 -0300
+Subject: [PATCH] temp: media-caption
+
+---
+ .../39327/providers-collapsed.png             | Bin
+ .../39327/providers-expanded.png              | Bin
+ .../pr-screenshots/39327/tools-collapsed.png  | Bin
+ .../pr-screenshots/39327/tools-expanded.png   | Bin
+ datagen-config-examples/run_browser_tasks.sh  |   0
+ docker/cont-init.d/02-reconcile-profiles      |   0
+ docker/entrypoint.sh                          |   0
+ docker/main-wrapper.sh                        |   0
+ docker/s6-rc.d/dashboard/finish               |   0
+ docker/s6-rc.d/dashboard/run                  |   0
+ docker/s6-rc.d/main-hermes/run                |   0
+ docker/stage2-hook.sh                         |   0
+ gateway/platforms/base.py                     | 130 +++++++++++++++++-
+ gateway/run.py                                |  48 ++++++-
+ hermes                                        |   0
+ .../creative/hyperframes/scripts/setup.sh     |   0
+ .../scripts/bootstrap_pipeline.py             |   0
+ .../scripts/monitor.py                        |   0
+ .../devops/docker-management/SKILL.md         |   0
+ .../devops/watchers/scripts/_watermark.py     |   0
+ .../devops/watchers/scripts/watch_github.py   |   0
+ .../watchers/scripts/watch_http_json.py       |   0
+ .../devops/watchers/scripts/watch_rss.py      |   0
+ .../finance/dcf-model/scripts/validate_dcf.py |   0
+ .../finance/stocks/scripts/stocks_client.py   |   0
+ .../productivity/here-now/scripts/drive.sh    |   0
+ .../productivity/here-now/scripts/publish.sh  |   0
+ .../duckduckgo-search/scripts/duckduckgo.sh   |   0
+ .../searxng-search/scripts/searxng.sh         |   0
+ .../web-pentest/scripts/recon-scan.sh         |   0
+ plugins/disk-cleanup/disk_cleanup.py          |   0
+ scripts/build_model_catalog.py                |   0
+ scripts/discord-voice-doctor.py               |   0
+ scripts/hermes-gateway                        |   0
+ scripts/install.sh                            |   0
+ scripts/install_psutil_android.py             |   0
+ scripts/kill_modal.sh                         |   0
+ scripts/lint_diff.py                          |   0
+ scripts/profile-tui.py                        |   0
+ scripts/release.py                            |   0
+ scripts/run_tests.sh                          |   0
+ scripts/run_tests_parallel.py                 |   0
+ setup-hermes.sh                               |   0
+ .../creative/comfyui/scripts/auto_fix_deps.py |   0
+ skills/creative/comfyui/scripts/check_deps.py |   0
+ .../creative/comfyui/scripts/comfyui_setup.sh |   0
+ .../comfyui/scripts/extract_schema.py         |   0
+ skills/creative/comfyui/scripts/fetch_logs.py |   0
+ .../comfyui/scripts/hardware_check.py         |   0
+ .../creative/comfyui/scripts/health_check.py  |   0
+ skills/creative/comfyui/scripts/run_batch.py  |   0
+ .../creative/comfyui/scripts/run_workflow.py  |   0
+ skills/creative/comfyui/scripts/ws_monitor.py |   0
+ skills/creative/manim-video/scripts/setup.sh  |   0
+ skills/creative/p5js/scripts/export-frames.js |   0
+ skills/creative/p5js/scripts/render.sh        |   0
+ skills/creative/p5js/scripts/serve.sh         |   0
+ skills/creative/p5js/scripts/setup.sh         |   0
+ skills/github/github-auth/scripts/gh-env.sh   |   0
+ .../google-workspace/scripts/gws_bridge.py    |   0
+ website/scripts/generate-skill-docs.py        |   0
+ 61 files changed, 174 insertions(+), 4 deletions(-)
+ mode change 100755 => 100644 .github/pr-screenshots/39327/providers-collapsed.png
+ mode change 100755 => 100644 .github/pr-screenshots/39327/providers-expanded.png
+ mode change 100755 => 100644 .github/pr-screenshots/39327/tools-collapsed.png
+ mode change 100755 => 100644 .github/pr-screenshots/39327/tools-expanded.png
+ mode change 100755 => 100644 datagen-config-examples/run_browser_tasks.sh
+ mode change 100755 => 100644 docker/cont-init.d/02-reconcile-profiles
+ mode change 100755 => 100644 docker/entrypoint.sh
+ mode change 100755 => 100644 docker/main-wrapper.sh
+ mode change 100755 => 100644 docker/s6-rc.d/dashboard/finish
+ mode change 100755 => 100644 docker/s6-rc.d/dashboard/run
+ mode change 100755 => 100644 docker/s6-rc.d/main-hermes/run
+ mode change 100755 => 100644 docker/stage2-hook.sh
+ mode change 100755 => 100644 hermes
+ mode change 100755 => 100644 optional-skills/creative/hyperframes/scripts/setup.sh
+ mode change 100755 => 100644 optional-skills/creative/kanban-video-orchestrator/scripts/bootstrap_pipeline.py
+ mode change 100755 => 100644 optional-skills/creative/kanban-video-orchestrator/scripts/monitor.py
+ mode change 100755 => 100644 optional-skills/devops/docker-management/SKILL.md
+ mode change 100755 => 100644 optional-skills/devops/watchers/scripts/_watermark.py
+ mode change 100755 => 100644 optional-skills/devops/watchers/scripts/watch_github.py
+ mode change 100755 => 100644 optional-skills/devops/watchers/scripts/watch_http_json.py
+ mode change 100755 => 100644 optional-skills/devops/watchers/scripts/watch_rss.py
+ mode change 100755 => 100644 optional-skills/finance/dcf-model/scripts/validate_dcf.py
+ mode change 100755 => 100644 optional-skills/finance/stocks/scripts/stocks_client.py
+ mode change 100755 => 100644 optional-skills/productivity/here-now/scripts/drive.sh
+ mode change 100755 => 100644 optional-skills/productivity/here-now/scripts/publish.sh
+ mode change 100755 => 100644 optional-skills/research/duckduckgo-search/scripts/duckduckgo.sh
+ mode change 100755 => 100644 optional-skills/research/searxng-search/scripts/searxng.sh
+ mode change 100755 => 100644 optional-skills/security/web-pentest/scripts/recon-scan.sh
+ mode change 100755 => 100644 plugins/disk-cleanup/disk_cleanup.py
+ mode change 100755 => 100644 scripts/build_model_catalog.py
+ mode change 100755 => 100644 scripts/discord-voice-doctor.py
+ mode change 100755 => 100644 scripts/hermes-gateway
+ mode change 100755 => 100644 scripts/install.sh
+ mode change 100755 => 100644 scripts/install_psutil_android.py
+ mode change 100755 => 100644 scripts/kill_modal.sh
+ mode change 100755 => 100644 scripts/lint_diff.py
+ mode change 100755 => 100644 scripts/profile-tui.py
+ mode change 100755 => 100644 scripts/release.py
+ mode change 100755 => 100644 scripts/run_tests.sh
+ mode change 100755 => 100644 scripts/run_tests_parallel.py
+ mode change 100755 => 100644 setup-hermes.sh
+ mode change 100755 => 100644 skills/creative/comfyui/scripts/auto_fix_deps.py
+ mode change 100755 => 100644 skills/creative/comfyui/scripts/check_deps.py
+ mode change 100755 => 100644 skills/creative/comfyui/scripts/comfyui_setup.sh
+ mode change 100755 => 100644 skills/creative/comfyui/scripts/extract_schema.py
+ mode change 100755 => 100644 skills/creative/comfyui/scripts/fetch_logs.py
+ mode change 100755 => 100644 skills/creative/comfyui/scripts/hardware_check.py
+ mode change 100755 => 100644 skills/creative/comfyui/scripts/health_check.py
+ mode change 100755 => 100644 skills/creative/comfyui/scripts/run_batch.py
+ mode change 100755 => 100644 skills/creative/comfyui/scripts/run_workflow.py
+ mode change 100755 => 100644 skills/creative/comfyui/scripts/ws_monitor.py
+ mode change 100755 => 100644 skills/creative/manim-video/scripts/setup.sh
+ mode change 100755 => 100644 skills/creative/p5js/scripts/export-frames.js
+ mode change 100755 => 100644 skills/creative/p5js/scripts/render.sh
+ mode change 100755 => 100644 skills/creative/p5js/scripts/serve.sh
+ mode change 100755 => 100644 skills/creative/p5js/scripts/setup.sh
+ mode change 100755 => 100644 skills/github/github-auth/scripts/gh-env.sh
+ mode change 100755 => 100644 skills/productivity/google-workspace/scripts/gws_bridge.py
+ mode change 100755 => 100644 website/scripts/generate-skill-docs.py
+
+diff --git a/.github/pr-screenshots/39327/providers-collapsed.png b/.github/pr-screenshots/39327/providers-collapsed.png
+old mode 100755
+new mode 100644
+diff --git a/.github/pr-screenshots/39327/providers-expanded.png b/.github/pr-screenshots/39327/providers-expanded.png
+old mode 100755
+new mode 100644
+diff --git a/.github/pr-screenshots/39327/tools-collapsed.png b/.github/pr-screenshots/39327/tools-collapsed.png
+old mode 100755
+new mode 100644
+diff --git a/.github/pr-screenshots/39327/tools-expanded.png b/.github/pr-screenshots/39327/tools-expanded.png
+old mode 100755
+new mode 100644
+diff --git a/datagen-config-examples/run_browser_tasks.sh b/datagen-config-examples/run_browser_tasks.sh
+old mode 100755
+new mode 100644
+diff --git a/docker/cont-init.d/02-reconcile-profiles b/docker/cont-init.d/02-reconcile-profiles
+old mode 100755
+new mode 100644
+diff --git a/docker/entrypoint.sh b/docker/entrypoint.sh
+old mode 100755
+new mode 100644
+diff --git a/docker/main-wrapper.sh b/docker/main-wrapper.sh
+old mode 100755
+new mode 100644
+diff --git a/docker/s6-rc.d/dashboard/finish b/docker/s6-rc.d/dashboard/finish
+old mode 100755
+new mode 100644
+diff --git a/docker/s6-rc.d/dashboard/run b/docker/s6-rc.d/dashboard/run
+old mode 100755
+new mode 100644
+diff --git a/docker/s6-rc.d/main-hermes/run b/docker/s6-rc.d/main-hermes/run
+old mode 100755
+new mode 100644
+diff --git a/docker/stage2-hook.sh b/docker/stage2-hook.sh
+old mode 100755
+new mode 100644
 diff --git a/gateway/platforms/base.py b/gateway/platforms/base.py
 index 1025964dc..67e5487b3 100644
 --- a/gateway/platforms/base.py
@@ -187,10 +351,10 @@ index 1025964dc..67e5487b3 100644
                  if not _anything_delivered and _response_pre_extract.strip():
                      logger.error(
 diff --git a/gateway/run.py b/gateway/run.py
-index b08650d08..7071f6989 100644
+index ade178629..70ce47004 100644
 --- a/gateway/run.py
 +++ b/gateway/run.py
-@@ -12667,6 +12667,7 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
+@@ -12703,6 +12703,7 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
  
              from gateway.platforms.base import BasePlatformAdapter, should_send_media_as_audio
  
@@ -198,7 +362,7 @@ index b08650d08..7071f6989 100644
              media_files, cleaned = adapter.extract_media(response)
              media_files = BasePlatformAdapter.filter_media_delivery_paths(media_files)
              # Chain the cleaned text through each extractor (extract_media →
-@@ -12682,6 +12683,37 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
+@@ -12718,6 +12719,37 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
  
              _thread_meta = self._thread_metadata_for_source(event.source, self._reply_anchor_for_event(event))
  
@@ -236,7 +400,7 @@ index b08650d08..7071f6989 100644
              _VIDEO_EXTS = {'.mp4', '.mov', '.avi', '.mkv', '.webm', '.3gp'}
              _IMAGE_EXTS = {'.jpg', '.jpeg', '.png', '.webp', '.gif'}
  
-@@ -19312,13 +19344,25 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
+@@ -19357,13 +19389,25 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
              elif not _is_empty_sentinel and _transformed and _sc is not None:
                  # Plugin hooks transformed the response after streaming — edit the
                  # existing streamed message instead of sending a duplicate.
@@ -264,3 +428,147 @@ index b08650d08..7071f6989 100644
                              finalize=True,
                          )
                          response["already_sent"] = True
+diff --git a/hermes b/hermes
+old mode 100755
+new mode 100644
+diff --git a/optional-skills/creative/hyperframes/scripts/setup.sh b/optional-skills/creative/hyperframes/scripts/setup.sh
+old mode 100755
+new mode 100644
+diff --git a/optional-skills/creative/kanban-video-orchestrator/scripts/bootstrap_pipeline.py b/optional-skills/creative/kanban-video-orchestrator/scripts/bootstrap_pipeline.py
+old mode 100755
+new mode 100644
+diff --git a/optional-skills/creative/kanban-video-orchestrator/scripts/monitor.py b/optional-skills/creative/kanban-video-orchestrator/scripts/monitor.py
+old mode 100755
+new mode 100644
+diff --git a/optional-skills/devops/docker-management/SKILL.md b/optional-skills/devops/docker-management/SKILL.md
+old mode 100755
+new mode 100644
+diff --git a/optional-skills/devops/watchers/scripts/_watermark.py b/optional-skills/devops/watchers/scripts/_watermark.py
+old mode 100755
+new mode 100644
+diff --git a/optional-skills/devops/watchers/scripts/watch_github.py b/optional-skills/devops/watchers/scripts/watch_github.py
+old mode 100755
+new mode 100644
+diff --git a/optional-skills/devops/watchers/scripts/watch_http_json.py b/optional-skills/devops/watchers/scripts/watch_http_json.py
+old mode 100755
+new mode 100644
+diff --git a/optional-skills/devops/watchers/scripts/watch_rss.py b/optional-skills/devops/watchers/scripts/watch_rss.py
+old mode 100755
+new mode 100644
+diff --git a/optional-skills/finance/dcf-model/scripts/validate_dcf.py b/optional-skills/finance/dcf-model/scripts/validate_dcf.py
+old mode 100755
+new mode 100644
+diff --git a/optional-skills/finance/stocks/scripts/stocks_client.py b/optional-skills/finance/stocks/scripts/stocks_client.py
+old mode 100755
+new mode 100644
+diff --git a/optional-skills/productivity/here-now/scripts/drive.sh b/optional-skills/productivity/here-now/scripts/drive.sh
+old mode 100755
+new mode 100644
+diff --git a/optional-skills/productivity/here-now/scripts/publish.sh b/optional-skills/productivity/here-now/scripts/publish.sh
+old mode 100755
+new mode 100644
+diff --git a/optional-skills/research/duckduckgo-search/scripts/duckduckgo.sh b/optional-skills/research/duckduckgo-search/scripts/duckduckgo.sh
+old mode 100755
+new mode 100644
+diff --git a/optional-skills/research/searxng-search/scripts/searxng.sh b/optional-skills/research/searxng-search/scripts/searxng.sh
+old mode 100755
+new mode 100644
+diff --git a/optional-skills/security/web-pentest/scripts/recon-scan.sh b/optional-skills/security/web-pentest/scripts/recon-scan.sh
+old mode 100755
+new mode 100644
+diff --git a/plugins/disk-cleanup/disk_cleanup.py b/plugins/disk-cleanup/disk_cleanup.py
+old mode 100755
+new mode 100644
+diff --git a/scripts/build_model_catalog.py b/scripts/build_model_catalog.py
+old mode 100755
+new mode 100644
+diff --git a/scripts/discord-voice-doctor.py b/scripts/discord-voice-doctor.py
+old mode 100755
+new mode 100644
+diff --git a/scripts/hermes-gateway b/scripts/hermes-gateway
+old mode 100755
+new mode 100644
+diff --git a/scripts/install.sh b/scripts/install.sh
+old mode 100755
+new mode 100644
+diff --git a/scripts/install_psutil_android.py b/scripts/install_psutil_android.py
+old mode 100755
+new mode 100644
+diff --git a/scripts/kill_modal.sh b/scripts/kill_modal.sh
+old mode 100755
+new mode 100644
+diff --git a/scripts/lint_diff.py b/scripts/lint_diff.py
+old mode 100755
+new mode 100644
+diff --git a/scripts/profile-tui.py b/scripts/profile-tui.py
+old mode 100755
+new mode 100644
+diff --git a/scripts/release.py b/scripts/release.py
+old mode 100755
+new mode 100644
+diff --git a/scripts/run_tests.sh b/scripts/run_tests.sh
+old mode 100755
+new mode 100644
+diff --git a/scripts/run_tests_parallel.py b/scripts/run_tests_parallel.py
+old mode 100755
+new mode 100644
+diff --git a/setup-hermes.sh b/setup-hermes.sh
+old mode 100755
+new mode 100644
+diff --git a/skills/creative/comfyui/scripts/auto_fix_deps.py b/skills/creative/comfyui/scripts/auto_fix_deps.py
+old mode 100755
+new mode 100644
+diff --git a/skills/creative/comfyui/scripts/check_deps.py b/skills/creative/comfyui/scripts/check_deps.py
+old mode 100755
+new mode 100644
+diff --git a/skills/creative/comfyui/scripts/comfyui_setup.sh b/skills/creative/comfyui/scripts/comfyui_setup.sh
+old mode 100755
+new mode 100644
+diff --git a/skills/creative/comfyui/scripts/extract_schema.py b/skills/creative/comfyui/scripts/extract_schema.py
+old mode 100755
+new mode 100644
+diff --git a/skills/creative/comfyui/scripts/fetch_logs.py b/skills/creative/comfyui/scripts/fetch_logs.py
+old mode 100755
+new mode 100644
+diff --git a/skills/creative/comfyui/scripts/hardware_check.py b/skills/creative/comfyui/scripts/hardware_check.py
+old mode 100755
+new mode 100644
+diff --git a/skills/creative/comfyui/scripts/health_check.py b/skills/creative/comfyui/scripts/health_check.py
+old mode 100755
+new mode 100644
+diff --git a/skills/creative/comfyui/scripts/run_batch.py b/skills/creative/comfyui/scripts/run_batch.py
+old mode 100755
+new mode 100644
+diff --git a/skills/creative/comfyui/scripts/run_workflow.py b/skills/creative/comfyui/scripts/run_workflow.py
+old mode 100755
+new mode 100644
+diff --git a/skills/creative/comfyui/scripts/ws_monitor.py b/skills/creative/comfyui/scripts/ws_monitor.py
+old mode 100755
+new mode 100644
+diff --git a/skills/creative/manim-video/scripts/setup.sh b/skills/creative/manim-video/scripts/setup.sh
+old mode 100755
+new mode 100644
+diff --git a/skills/creative/p5js/scripts/export-frames.js b/skills/creative/p5js/scripts/export-frames.js
+old mode 100755
+new mode 100644
+diff --git a/skills/creative/p5js/scripts/render.sh b/skills/creative/p5js/scripts/render.sh
+old mode 100755
+new mode 100644
+diff --git a/skills/creative/p5js/scripts/serve.sh b/skills/creative/p5js/scripts/serve.sh
+old mode 100755
+new mode 100644
+diff --git a/skills/creative/p5js/scripts/setup.sh b/skills/creative/p5js/scripts/setup.sh
+old mode 100755
+new mode 100644
+diff --git a/skills/github/github-auth/scripts/gh-env.sh b/skills/github/github-auth/scripts/gh-env.sh
+old mode 100755
+new mode 100644
+diff --git a/skills/productivity/google-workspace/scripts/gws_bridge.py b/skills/productivity/google-workspace/scripts/gws_bridge.py
+old mode 100755
+new mode 100644
+diff --git a/website/scripts/generate-skill-docs.py b/website/scripts/generate-skill-docs.py
+old mode 100755
+new mode 100644
+-- 
+2.54.0.windows.1
+
