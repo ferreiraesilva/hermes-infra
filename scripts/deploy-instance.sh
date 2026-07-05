@@ -415,7 +415,8 @@ chmod -R u+w "$HERMES_AGENT_OVERLAY"
   # estiver presente após o apply (protege contra apply parcial/silencioso).
   grep -q "MEDIA_CAPTION_RE" gateway/platforms/base.py || { echo "ERRO: media-caption.patch não aplicado em base.py" >&2; exit 1; }
   grep -q "extract_captioned_media" gateway/run.py || { echo "ERRO: media-caption.patch não aplicado em run.py" >&2; exit 1; }
-  grep -q "MEDIA_CAPTION" gateway/stream_consumer.py || { echo "ERRO: media-caption.patch não aplicado em stream_consumer.py" >&2; exit 1; }
+  # stream_consumer.py não precisa de hunk próprio: _clean_for_display delega
+  # para strip_media_directives_for_display (base.py), já coberto acima.
   python3 -m py_compile gateway/platforms/base.py gateway/pairing.py gateway/run.py gateway/stream_consumer.py
 )
 
