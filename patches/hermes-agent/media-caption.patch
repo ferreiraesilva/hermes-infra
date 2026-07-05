@@ -1,5 +1,5 @@
 diff --git a/gateway/platforms/base.py b/gateway/platforms/base.py
-index 1025964dc..67e5487b3 100644
+index 1025964dc..0b51b3197 100644
 --- a/gateway/platforms/base.py
 +++ b/gateway/platforms/base.py
 @@ -8,6 +8,7 @@ and implement the required methods.
@@ -29,7 +29,7 @@ index 1025964dc..67e5487b3 100644
  
  def _normalize_media_tag_path(raw: str) -> str:
      path = str(raw or "").strip()
-@@ -3686,14 +3699,88 @@ class BasePlatformAdapter(ABC):
+@@ -3686,14 +3699,111 @@ class BasePlatformAdapter(ABC):
          """
          if (
              "MEDIA:" not in text
@@ -115,10 +115,33 @@ index 1025964dc..67e5487b3 100644
 +        cleaned = re.sub(r'\n{3,}', '\n\n', cleaned).strip()
 +        return items, cleaned
 +
++    @staticmethod
++    def split_captioned_media_text(content: str) -> Tuple[str, str]:
++        """Split text around MEDIA_CAPTION directives into (opening, closing).
++
++        Captioned media are delivered as native media bubbles between the
++        text that precedes the first directive and the text that follows the
++        last one. Callers use the pair to keep the natural reading order:
++        [opening] [media+caption ...] [closing]. Both segments come back
++        display-cleaned (no residual directives). Returns ("", "") when the
++        content carries no MEDIA_CAPTION directive.
++        """
++        if "MEDIA_CAPTION:" not in content:
++            return "", ""
++        scan_content = BasePlatformAdapter._mask_protected_spans(content)
++        matches = list(MEDIA_CAPTION_RE.finditer(scan_content))
++        if not matches:
++            return "", ""
++        opening = content[:matches[0].start()]
++        closing = content[matches[-1].end():]
++        opening = BasePlatformAdapter.strip_media_directives_for_display(opening)
++        closing = BasePlatformAdapter.strip_media_directives_for_display(closing)
++        return opening, closing
++
      @staticmethod
      def extract_local_files(content: str) -> Tuple[List[str], str]:
          """
-@@ -4900,6 +4987,10 @@ class BasePlatformAdapter(ABC):
+@@ -4900,6 +5010,10 @@ class BasePlatformAdapter(ABC):
                  # Pre-extract snapshot for the #29346 recovery/invariant below.
                  _response_pre_extract = response
  
@@ -129,7 +152,7 @@ index 1025964dc..67e5487b3 100644
                  # Extract MEDIA:<path> tags (from TTS tool) before other processing
                  media_files, response = self.extract_media(response)
                  media_files = self.filter_media_delivery_paths(media_files)
-@@ -4929,7 +5020,7 @@ class BasePlatformAdapter(ABC):
+@@ -4929,7 +5043,7 @@ class BasePlatformAdapter(ABC):
                  # empty text with no attachment, and the `if text_content` guard
                  # below then drops it silently. Recover on every platform (#33842
                  # was Discord-only); the guard avoids duplicating an attachment.
@@ -138,7 +161,7 @@ index 1025964dc..67e5487b3 100644
                      # Recover from the post-extract_media `response`, not the raw
                      # snapshot: extract_media already stripped MEDIA (incl. spaced
                      # paths) with its full grammar, so no fragment can leak.
-@@ -5134,11 +5225,46 @@ class BasePlatformAdapter(ABC):
+@@ -5134,11 +5248,46 @@ class BasePlatformAdapter(ABC):
                      except Exception as file_err:
                          logger.error("[%s] Error sending local file %s: %s", self.name, file_path, file_err)
  
@@ -187,10 +210,34 @@ index 1025964dc..67e5487b3 100644
                  if not _anything_delivered and _response_pre_extract.strip():
                      logger.error(
 diff --git a/gateway/run.py b/gateway/run.py
-index ade178629..70ce47004 100644
+index ade178629..3ef1a0b10 100644
 --- a/gateway/run.py
 +++ b/gateway/run.py
-@@ -12703,6 +12703,7 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
+@@ -11667,6 +11667,23 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
+                         await self._deliver_media_from_response(
+                             response, event, _media_adapter,
+                         )
++                        # Closing text deferred by the captioned-media reorder
++                        # (see the suppress/transform branches): it must land
++                        # after the media bubbles to keep the reading order
++                        # [opening] [media+caption ...] [closing].
++                        _mc_trailing = agent_result.get("media_caption_trailing")
++                        if _mc_trailing:
++                            try:
++                                await _media_adapter.send(
++                                    source.chat_id,
++                                    _mc_trailing,
++                                    metadata=self._thread_metadata_for_source(source, self._reply_anchor_for_event(event)),
++                                )
++                            except Exception as _mc_e:
++                                logger.warning(
++                                    "Captioned-media trailing text send failed: %s",
++                                    _mc_e,
++                                )
+                 # Streaming already delivered the body text, but the footer was
+                 # intentionally held back (see the `not already_sent` gate above).
+                 # Send it now as a small trailing message so Telegram/Discord/etc.
+@@ -12703,6 +12720,7 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
  
              from gateway.platforms.base import BasePlatformAdapter, should_send_media_as_audio
  
@@ -198,7 +245,7 @@ index ade178629..70ce47004 100644
              media_files, cleaned = adapter.extract_media(response)
              media_files = BasePlatformAdapter.filter_media_delivery_paths(media_files)
              # Chain the cleaned text through each extractor (extract_media →
-@@ -12718,6 +12719,37 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
+@@ -12718,6 +12736,37 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
  
              _thread_meta = self._thread_metadata_for_source(event.source, self._reply_anchor_for_event(event))
  
@@ -236,7 +283,40 @@ index ade178629..70ce47004 100644
              _VIDEO_EXTS = {'.mp4', '.mov', '.avi', '.mkv', '.webm', '.3gp'}
              _IMAGE_EXTS = {'.jpg', '.jpeg', '.png', '.webp', '.gif'}
  
-@@ -19357,13 +19389,25 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
+@@ -19354,16 +19403,69 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
+                     _content_delivered,
+                 )
+                 response["already_sent"] = True
++                # Captioned-media reading order: the streamed bubble shows the
++                # whole display text (opening + closing merged, directives
++                # stripped) while the media itself only lands afterwards via
++                # _deliver_media_from_response. Shrink the bubble to the text
++                # that precedes the first MEDIA_CAPTION directive and defer
++                # the text that follows the last one to a trailing message
++                # sent after the media (see the already_sent path), restoring
++                # [opening] [media+caption ...] [closing].
++                _mc_final = response.get("final_response") or ""
++                if _sc is not None and "MEDIA_CAPTION:" in _mc_final:
++                    from gateway.platforms.base import BasePlatformAdapter as _BPA_mc
++                    _mc_pre, _mc_post = _BPA_mc.split_captioned_media_text(_mc_final)
++                    _mc_msg_id = _sc.message_id
++                    if _mc_msg_id and _mc_pre.strip():
++                        try:
++                            await _sc.adapter.edit_message(
++                                chat_id=source.chat_id,
++                                message_id=_mc_msg_id,
++                                content=_mc_pre,
++                                finalize=True,
++                            )
++                            if _mc_post.strip():
++                                response["media_caption_trailing"] = _mc_post
++                        except Exception as _mc_err:
++                            # Keep the merged bubble on failure — media still
++                            # arrives right after, just without the reorder.
++                            logger.warning(
++                                "Captioned-media bubble reorder failed for session %s: %s",
++                                session_key or "?", _mc_err,
++                            )
              elif not _is_empty_sentinel and _transformed and _sc is not None:
                  # Plugin hooks transformed the response after streaming — edit the
                  # existing streamed message instead of sending a duplicate.
@@ -247,6 +327,17 @@ index ade178629..70ce47004 100644
 +                _display_final = _BPA_edit.strip_media_directives_for_display(
 +                    response["final_response"]
 +                )
++                # Same reading-order fix as the non-transformed branch above:
++                # keep only the opening text in the edited bubble and defer the
++                # closing text until after the captioned media is delivered.
++                if "MEDIA_CAPTION:" in response["final_response"]:
++                    _mc_pre, _mc_post = _BPA_edit.split_captioned_media_text(
++                        response["final_response"]
++                    )
++                    if _mc_pre.strip():
++                        _display_final = _mc_pre
++                        if _mc_post.strip():
++                            response["media_caption_trailing"] = _mc_post
                  _sc_msg_id = _sc.message_id
 -                if _sc_msg_id:
 +                if _sc_msg_id and not _display_final.strip():
