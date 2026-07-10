@@ -13,6 +13,7 @@ services:
       - ${HERMES_DATA_DIR:?defina HERMES_DATA_DIR}/runtime/hermes-agent-overlay/gateway/pairing.py:/opt/hermes/gateway/pairing.py:ro
       - ${HERMES_DATA_DIR:?defina HERMES_DATA_DIR}/runtime/hermes-agent-overlay/gateway/run.py:/opt/hermes/gateway/run.py:ro
       - ${HERMES_DATA_DIR:?defina HERMES_DATA_DIR}/runtime/hermes-agent-overlay/gateway/stream_consumer.py:/opt/hermes/gateway/stream_consumer.py:ro
+      - ${HERMES_DATA_DIR:?defina HERMES_DATA_DIR}/runtime/hermes-agent-overlay/tools/transcription_tools.py:/opt/hermes/tools/transcription_tools.py:ro
       - ${HERMES_FILES_DIR:?defina HERMES_FILES_DIR}:/opt/data/files
     environment:
       HERMES_UID: ${HERMES_UID:?defina HERMES_UID}

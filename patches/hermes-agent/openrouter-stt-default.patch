@@ -1,0 +1,14 @@
+diff --git a/tools/transcription_tools.py b/tools/transcription_tools.py
+index 1111111..2222222 100644
+--- a/tools/transcription_tools.py
++++ b/tools/transcription_tools.py
+@@ -91,7 +91,7 @@ DEFAULT_PROVIDER = "local"
+ DEFAULT_LOCAL_MODEL = "base"
+ DEFAULT_LOCAL_STT_LANGUAGE = "en"
+ DEFAULT_STT_MODEL = os.getenv("STT_OPENAI_MODEL", "whisper-1")
+ DEFAULT_OPENROUTER_STT_MODEL = os.getenv(
+-    "STT_OPENROUTER_MODEL", "mistralai/voxtral-small-24b-2507"
++    "STT_OPENROUTER_MODEL", "google/gemini-3.1-flash-lite"
+ )
+ DEFAULT_GROQ_STT_MODEL = os.getenv("STT_GROQ_MODEL", "whisper-large-v3-turbo")
+ DEFAULT_MISTRAL_STT_MODEL = os.getenv("STT_MISTRAL_MODEL", "voxtral-mini-latest")
